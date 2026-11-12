@@ -1,0 +1,184 @@
+services:
+  yanfachatbi-example-postgres:
+    image: postgres:latest
+    container_name: yanfachatbi-example-postgres
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-example-timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: yanfachatbi-example-timescaledb
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-example-starrocks:
+    image: starrocks/allin1-ubuntu:latest
+    container_name: yanfachatbi-example-starrocks
+    restart: always
+    ports:
+      - 9030:9030
+      - 8030:8030
+    volumes:
+      - starrocks-data:/data/starrocks
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-example-clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: yanfachatbi-example-clickhouse
+    restart: always
+    ports:
+      - 8123:8123
+      - 9000:9000
+    environment:
+      - CLICKHOUSE_DB=testdb
+      - CLICKHOUSE_USER=clickhouse
+      - CLICKHOUSE_PASSWORD=clickhouse
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d
+    networks:
+      - yanfachatbi-network
+  yanfachatbi-example-mysql:
+    image: mysql:latest
+    container_name: yanfachatbi-example-mysql
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_USER: mysql
+      MYSQL_PASSWORD: mysql
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: testdb
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-example-mongodb:
+    image: mongo:latest
+    container_name: yanfachatbi-example-mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: example_user
+      MONGO_INITDB_ROOT_PASSWORD: example_password
+      MONGO_INITDB_DATABASE: example_db
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - yanfachatbi-network
+
+  # ============================================================================
+  # SSH Tunnel Testing Configuration
+  # ============================================================================
+  # These containers are for testing SSH tunnel functionality
+  # They simulate a real-world scenario where databases are only accessible via SSH
+  # Run with: docker-compose -f docker-compose-exampledbs.yml up -d
+  # ============================================================================
+
+  # SSH Server for testing SSH tunnel functionality
+  # This container runs an SSH server that acts as a gateway
+  # Users can authenticate via password or SSH keys
+  # Credentials: username=sshuser, password=sshpass123
+  yanfachatbi-ssh-server:
+    image: linuxserver/openssh-server:latest
+    container_name: yanfachatbi-ssh-server
+    restart: always
+    ports:
+      # SSH port exposed on localhost:2222
+      # Note: Using 2222 instead of 22 to avoid conflicts with host SSH
+      # When creating SSH connections in YanfaChatBI, use ssh_port: 2222
+      - 2222:2222
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: UTC
+      # SSH user credentials for testing
+      USER_NAME: sshuser
+      USER_PASSWORD: sshpass123
+      # Authentication methods enabled
+      PASSWORD_ACCESS: "true"
+      SUDO_ACCESS: "false"
+      # SSH client support for key-based auth testing
+      DOCKER_MODS: linuxserver/mods:openssh-server-ssh-client
+    volumes:
+      # SSH configuration persists across container restarts
+      - yanfachatbi-ssh-server-data:/config
+    networks:
+      - yanfachatbi-network
+    depends_on:
+      # Wait for PostgreSQL behind SSH to be ready
+      - yanfachatbi-postgres-behind-ssh
+
+  # PostgreSQL database behind SSH tunnel
+  # This database is NOT exposed to the host directly (no ports published)
+  # It can ONLY be accessed through the SSH tunnel via yanfachatbi-ssh-server
+  # This simulates a typical production scenario where databases are in a private network
+  # 
+  # Connection details for SSH tunnel in YanfaChatBI:
+  # - SSH Host: localhost
+  # - SSH Port: 2222
+  # - SSH Username: sshuser
+  # - SSH Password: sshpass123
+  # - Database Host: yanfachatbi-postgres-behind-ssh (container name, internal network)
+  # - Database Port: 5432
+  # - Database Name: testdb_ssh
+  # - Database Username: pguser
+  # - Database Password: pgpass123
+  yanfachatbi-postgres-behind-ssh:
+    image: postgres:16-alpine
+    container_name: yanfachatbi-postgres-behind-ssh
+    restart: always
+    # NO ports exposed - only accessible through SSH tunnel
+    # This enforces the security principle of defense-in-depth
+    environment:
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpass123
+      POSTGRES_DB: testdb_ssh
+      # Enable useful PostgreSQL extensions for testing
+      POSTGRES_INITDB_ARGS: "-c shared_preload_libraries=pg_stat_statements"
+    volumes:
+      # Data persists across restarts
+      - yanfachatbi-postgres-behind-ssh-data:/var/lib/postgresql/data
+      # Initialize database with sample tables and data
+      - ./postgres-ssh-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      # On the same network as SSH server
+      # This allows the SSH server to route connections to this database
+      - yanfachatbi-network
+
+volumes:
+  postgres-data:
+  timescaledb-data:
+  starrocks-data:
+  clickhouse-data:
+  mysql-data:
+  mongodb-data:
+  yanfachatbi-ssh-server-data:
+  yanfachatbi-postgres-behind-ssh-data:
+
+networks:
+  yanfachatbi-network:
+    driver: bridge
+    external: true

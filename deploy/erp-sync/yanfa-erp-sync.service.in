@@ -1,0 +1,14 @@
+# Non-effective template. Render only within the separately approved cutover.
+[Unit]
+Description=Yanfa ERP incremental maintenance client
+After=network.target
+
+[Service]
+Type=oneshot
+User=@DEPLOYMENT_USER@
+ExecStart=@MAINTENANCE_EXECUTABLE@ --source-id @SOURCE_UUID@ incremental
+TimeoutStartSec=50
+NoNewPrivileges=true
+UMask=0077
+# Client exit confirms only its bounded admission response. Query backend source
+# state and the safe operation reference to establish actual execution/release.

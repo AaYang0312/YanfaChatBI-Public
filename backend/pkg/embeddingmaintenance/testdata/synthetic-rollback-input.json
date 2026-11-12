@@ -1,0 +1,80 @@
+{
+  "plan": {
+    "version": 1,
+    "id": "b8481dbe0e59c717969fa4c71a0c17cd1fe2dd05faab7136fb73f10a8a119349",
+    "kind": "empty-index-bootstrap",
+    "spec": {
+      "provider": "openai",
+      "model": "qwen3.7-text-embedding-flash",
+      "endpoint": "https://embedding.example.invalid/compatible-mode/v1",
+      "dimensions": 1024,
+      "distance": "Cosine",
+      "old": {
+        "schema": "synthetic_old_schema",
+        "messages": "synthetic_old_messages"
+      },
+      "target": {
+        "schema": "synthetic_new_schema_1024",
+        "messages": "synthetic_new_messages_1024"
+      },
+      "max_inventory_age_seconds": 300,
+      "source": {
+        "eligible_texts": null,
+        "provenance": ""
+      }
+    },
+    "baseline": {
+      "instance_id": "synthetic-instance-not-a-real-server",
+      "observed_at": "2026-11-10T09:00:00Z",
+      "provenance": "Invented fixture for offline tests. NOT a server audit or pause attestation.",
+      "collections_complete": true,
+      "aliases_complete": true,
+      "collections": [
+        {
+          "name": "synthetic_old_messages",
+          "vector_type": "dense",
+          "dimensions": 768,
+          "distance": "Cosine",
+          "points_count": 0,
+          "points_count_exact": true,
+          "status": "green"
+        },
+        {
+          "name": "synthetic_old_schema",
+          "vector_type": "dense",
+          "dimensions": 768,
+          "distance": "Cosine",
+          "points_count": 0,
+          "points_count_exact": true,
+          "status": "green"
+        }
+      ],
+      "aliases": [],
+      "old_provider": "unknown",
+      "old_model": "unknown"
+    },
+    "live_ready": false,
+    "pause_attested": false,
+    "operational_rollback_ready": false,
+    "historical_coverage": "unknown",
+    "pending_prerequisites": [
+      "Independently attest a maintenance window and paused/drained writes; JSON cannot attest this.",
+      "Identify the historical source corpus and eligible texts; zero vectors do not prove empty business data or completed backfill.",
+      "Verify the intended endpoint/provider/model contract and authorize any live work separately; this tool has no live executor.",
+      "Re-audit physical collections and aliases immediately before any separately implemented live change.",
+      "Validate the fresh pair before route selection; preserve the old pair and prohibit instant rollback after writes resume.",
+      "Identify and verify the old provider/model and rollback configuration; unknown old embedding identity blocks operational rollback readiness."
+    ],
+    "estimate": {
+      "batch_size": 20,
+      "requests": null,
+      "duration_known": false,
+      "explanation": "Source corpus and eligible-text count unknown. Duration unknown: no measured/operator-provided throughput, token quota, or batch-latency calibration. Simulation speed is not a production ETA."
+    }
+  },
+  "scenario": {
+    "fail_at": "",
+    "resume_writes": false,
+    "rollback": true
+  }
+}

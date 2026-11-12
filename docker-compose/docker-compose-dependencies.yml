@@ -1,0 +1,75 @@
+version: '3'
+services:
+  yanfachatbi-mongodb:
+    image: mongo:latest
+    container_name: yanfachatbi-mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: yanfachatbi
+      MONGO_INITDB_ROOT_PASSWORD: yanfachatbi
+      MONGO_INITDB_DATABASE: yanfachatbi
+    volumes:
+      - yanfachatbi-mongodb-data:/data/db
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-spreadsheet-postgres:
+    image: postgres:16-alpine
+    container_name: yanfachatbi-spreadsheet-postgres
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: yanfachatbi
+      POSTGRES_PASSWORD: yanfachatbi
+      POSTGRES_DB: yanfachatbi_spreadsheet_storage
+    volumes:
+      - yanfachatbi-spreadsheet-postgres-data:/var/lib/postgresql/data
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-redis:
+    image: redis:latest
+    container_name: yanfachatbi-redis
+    restart: always
+    command: >
+      redis-server 
+      --aclfile /usr/local/etc/redis/redis.acl
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --stop-writes-on-bgsave-error no
+    ports:
+      - 6379:6379
+    volumes:
+      - yanfachatbi-redis-data:/data
+      - ./redis.acl:/usr/local/etc/redis/redis.acl:ro
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: yanfachatbi-qdrant
+    restart: always
+    ports:
+      - 6333:6333
+      - 6334:6334
+    volumes:
+      - yanfachatbi-qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__SERVICE__API_KEY=yanfachatbi-qdrant-local-key
+    networks:
+      - yanfachatbi-network
+
+volumes:
+  yanfachatbi-mongodb-data:
+  yanfachatbi-redis-data:
+  yanfachatbi-spreadsheet-postgres-data:
+  yanfachatbi-qdrant-data:
+
+networks:
+  yanfachatbi-network:
+    driver: bridge
+    external: true

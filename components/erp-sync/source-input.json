@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "candidate_version": "yanfa-bridge/0.1.0",
+  "bridge_protocol": "yanfa-erp-bridge/1",
+  "source_archive_sha256": "38a6858bde6b9e99bea5c19fd8309f5dd90058338ccee2f403792aefe16a7705",
+  "source_archive_tracked": false,
+  "source_archive_needed_for_checkout_build": false,
+  "actual_origin": "<private-source-archive>",
+  "intake_date": "2026-11-07",
+  "intake_method": "Exact 13 named tar regular members; tar -tvzf verified unique regular entries, tar -xzf with explicit members copied bytes; sha256sum on archive and every copied file matched the adopted R2 source member hashes. No other member body read.",
+  "upstream_repository_uri": null,
+  "upstream_commit": null,
+  "upstream_license_decision": null,
+  "named_component_owner": null,
+  "approved_by": null,
+  "approved_at": null,
+  "formal_release_approved": false,
+  "recipe_sha256": null,
+  "artifact_sha256": null,
+  "artifact_digest_rule": "Manager builds from actual candidate commit. build-recipe.json includes input hashes and release_ref; external build-receipt.json records actual recipe_sha256 and artifact_sha256. Neither digest is the upstream archive hash; no self-referential artifact digest.",
+  "members": [
+    {
+      "source_member_path": "bi_agent/__init__.py",
+      "source_member_sha256": "9fc5e92cdb174ed298a2efb7e2aa50f08a3532895af07656e925a9710f63ce1d",
+      "input_path": "components/erp-sync/vendor/bi_agent/__init__.py",
+      "input_sha256": "9fc5e92cdb174ed298a2efb7e2aa50f08a3532895af07656e925a9710f63ce1d",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/sync.py",
+      "source_member_sha256": "df55ce1c0b4287c28fa16a80fcab3870f0dddee0f87514cfbc83e614b5cb8a16",
+      "input_path": "components/erp-sync/vendor/bi_agent/sync.py",
+      "input_sha256": "df55ce1c0b4287c28fa16a80fcab3870f0dddee0f87514cfbc83e614b5cb8a16",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/config.py",
+      "source_member_sha256": "6bdfd850106607a54315ef18bf91ec1e274ffdf3c27cf8992b5c26904aeb726e",
+      "input_path": "components/erp-sync/vendor/bi_agent/config.py",
+      "input_sha256": "6bdfd850106607a54315ef18bf91ec1e274ffdf3c27cf8992b5c26904aeb726e",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/data_quality.py",
+      "source_member_sha256": "6b903e60ca3a8251b9bc8f13231d2f9c18f24061ac2310ad0a7e129cf40b09d9",
+      "input_path": "components/erp-sync/vendor/bi_agent/data_quality.py",
+      "input_sha256": "6b903e60ca3a8251b9bc8f13231d2f9c18f24061ac2310ad0a7e129cf40b09d9",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/kuaimai.py",
+      "source_member_sha256": "910fad1413ce981dea06394b3510998d1c5b8bf7c08f7e053e88115281ee0337",
+      "input_path": "components/erp-sync/vendor/bi_agent/kuaimai.py",
+      "input_sha256": "910fad1413ce981dea06394b3510998d1c5b8bf7c08f7e053e88115281ee0337",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/metrics.py",
+      "source_member_sha256": "c2e5de6693f7533ff59c3e47f3c3364301848323ffaa0b9bde3df482a2b26eea",
+      "input_path": "components/erp-sync/vendor/bi_agent/metrics.py",
+      "input_sha256": "c2e5de6693f7533ff59c3e47f3c3364301848323ffaa0b9bde3df482a2b26eea",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/sources.py",
+      "source_member_sha256": "3655326077b2982f9e02ea7cc49aa4efceff1775538237e8db3fad0e26d758a4",
+      "input_path": "components/erp-sync/vendor/bi_agent/sources.py",
+      "input_sha256": "3655326077b2982f9e02ea7cc49aa4efceff1775538237e8db3fad0e26d758a4",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/catalog/__init__.py",
+      "source_member_sha256": "d41e6924ae73060acff0f70e48416c0e8adc811b301a3669cc4123b1337974d1",
+      "input_path": "components/erp-sync/vendor/bi_agent/catalog/__init__.py",
+      "input_sha256": "d41e6924ae73060acff0f70e48416c0e8adc811b301a3669cc4123b1337974d1",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/catalog/models.py",
+      "source_member_sha256": "d74c9a92f573e8972d02528fecba8aa6d7d8737594a055dd72eea6d74ee079ce",
+      "input_path": "components/erp-sync/vendor/bi_agent/catalog/models.py",
+      "input_sha256": "d74c9a92f573e8972d02528fecba8aa6d7d8737594a055dd72eea6d74ee079ce",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/catalog/projection.py",
+      "source_member_sha256": "b6ae04b60740beaeba6ca397caf03de36de2e50108c73f3e4ae2bba055036daa",
+      "input_path": "components/erp-sync/vendor/bi_agent/catalog/projection.py",
+      "input_sha256": "b6ae04b60740beaeba6ca397caf03de36de2e50108c73f3e4ae2bba055036daa",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "bi_agent/catalog/repository.py",
+      "source_member_sha256": "c8ea5b488a96adaf5e4777d0c5b735065ce17abc8b5d3eb236064a4215755fd4",
+      "input_path": "components/erp-sync/vendor/bi_agent/catalog/repository.py",
+      "input_sha256": "c8ea5b488a96adaf5e4777d0c5b735065ce17abc8b5d3eb236064a4215755fd4",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "pyproject.toml",
+      "source_member_sha256": "f01d438deab8a02c51cded1c560382a40378521911c56a8feed0c90ef78f4e19",
+      "input_path": "components/erp-sync/vendor/pyproject.toml",
+      "input_sha256": "f01d438deab8a02c51cded1c560382a40378521911c56a8feed0c90ef78f4e19",
+      "transformation": "none"
+    },
+    {
+      "source_member_path": "uv.lock",
+      "source_member_sha256": "2acc27c959019b0761726578111e7558992e8cf9632a7800b5c6e2fcf135ae43",
+      "input_path": "components/erp-sync/vendor/uv.lock",
+      "input_sha256": "2acc27c959019b0761726578111e7558992e8cf9632a7800b5c6e2fcf135ae43",
+      "transformation": "none"
+    }
+  ],
+  "closure_evidence": {
+    "entry": "bi_agent.yanfa_bridge incremental; imports original sync only after strict start and EOF",
+    "eager": [
+      {
+        "from": "bi_agent/__init__.py",
+        "to": [],
+        "site": "package docstring"
+      },
+      {
+        "from": "bi_agent/sync.py",
+        "to": [
+          "catalog",
+          "config",
+          "data_quality",
+          "kuaimai",
+          "metrics",
+          "sources"
+        ],
+        "site": "25-35"
+      },
+      {
+        "from": "bi_agent/catalog/__init__.py",
+        "to": [
+          "catalog.models",
+          "catalog.projection",
+          "catalog.repository"
+        ],
+        "site": "6-27"
+      },
+      {
+        "from": "bi_agent/catalog/projection.py",
+        "to": [
+          "catalog.models"
+        ],
+        "site": "14-22"
+      },
+      {
+        "from": "bi_agent/catalog/repository.py",
+        "to": [
+          "catalog.models"
+        ],
+        "site": "11-18"
+      },
+      {
+        "from": "bi_agent/data_quality.py",
+        "to": [
+          "sources"
+        ],
+        "site": "26-29"
+      },
+      {
+        "from": "bi_agent/metrics.py",
+        "to": [
+          "catalog",
+          "data_quality",
+          "sources"
+        ],
+        "site": "21,129-139"
+      },
+      {
+        "from": "config/kuaimai/sources/catalog.models",
+        "to": [
+          "stdlib",
+          "locked third-party wheels"
+        ],
+        "site": "remaining imports"
+      }
+    ],
+    "dynamic_imports": [
+      {
+        "site": "sync.py:1902",
+        "expression": "__import__(\"psycopg\")",
+        "reachable": true,
+        "resolution": "original locked psycopg[binary]"
+      }
+    ],
+    "excluded_lazy_edges": [
+      {
+        "site": "metrics.py:740-742",
+        "edge": "_single_covered_span -> bi_agent.business_query.partial",
+        "reason": "sync imports only _BudgetExhausted and _set_query_budget; definitions 531-538/560-565 do not call that query API. Fixed incremental bridge never invokes it."
+      }
+    ],
+    "excluded_modules": [
+      "agent",
+      "api",
+      "llm",
+      "monitoring",
+      "query_memory",
+      "business_query",
+      "commerce",
+      "inventory",
+      "semantic_catalog",
+      "sycm_import",
+      "sycm_upload",
+      "catalog.resolver",
+      "catalog.channel_mapping"
+    ],
+    "resources": "No SQL/template/prompt/CSV/JSON resource needed by fixed incremental. SQL is embedded. Legacy main/_setup_logging are never called; no log file dependency. Complete locked wheels and approved Python supply zoneinfo/tzdata, HTTPS trust/certifi and psycopg native/data resources. Runtime receipt must cover them.",
+    "runtime_verified": false
+  },
+  "metadata_normalization": "Source artifact sorts paths; uid/gid=0, owner names empty, mtime=0, regular=0644, directories=0755, gzip mtime=0 and empty filename. Source file content is unchanged.",
+  "dependency_recipe": {
+    "uv_version": "0.13.7",
+    "python_candidate_version": "3.12.3",
+    "tool_input_fields": [
+      "uv_executable_path",
+      "uv_version",
+      "uv_sha256",
+      "tool_origin_receipt",
+      "python_executable_path",
+      "python_version"
+    ],
+    "export_argv": [
+      "<approved_uv_absolute_path>",
+      "export",
+      "--frozen",
+      "--no-dev",
+      "--no-emit-project",
+      "--no-header",
+      "--no-annotate"
+    ],
+    "export_cwd": "staging dependency-recipe with verbatim original pyproject.toml and uv.lock",
+    "install_rule": "Explicit checked tool, explicit hash-locked wheelhouse; require-hashes/only-binary/no-deps/no-index. Never install/build original project, relock, upgrade, source-build or fetch missing inputs implicitly. T40 owns installer/tool validation.",
+    "excluded_entrypoints": [
+      "bi-inventory-monitor",
+      "bi-inventory-outbox"
+    ],
+    "failure_codes": [
+      "SOURCE_INPUT_MISSING",
+      "SOURCE_INPUT_HASH_MISMATCH",
+      "SOURCE_INPUT_UNSAFE",
+      "UV_TOOL_INPUT_MISSING",
+      "UV_TOOL_VERSION_MISMATCH",
+      "LOCKED_WHEEL_MISSING"
+    ],
+    "copied_module_runtime_limit": "Manager's 20 locked-version/1346 RECORD checks support isolated behavior only; they do not prove original wheel bytes, trusted installation or formal release."
+  }
+}

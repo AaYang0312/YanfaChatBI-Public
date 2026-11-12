@@ -1,0 +1,27 @@
+{
+  "spec": {
+    "provider": "openai",
+    "model": "qwen3.7-text-embedding-flash",
+    "endpoint": "https://embedding.example.invalid/compatible-mode/v1",
+    "dimensions": 1024,
+    "distance": "Cosine",
+    "old": {"schema": "synthetic_old_schema", "messages": "synthetic_old_messages"},
+    "target": {"schema": "synthetic_new_schema_1024", "messages": "synthetic_new_messages_1024"},
+    "max_inventory_age_seconds": 300,
+    "source": {"eligible_texts": null, "provenance": ""}
+  },
+  "inventory": {
+    "instance_id": "synthetic-instance-not-a-real-server",
+    "observed_at": "2026-11-10T09:00:00Z",
+    "provenance": "Invented fixture for offline tests. NOT a server audit or pause attestation.",
+    "collections_complete": true,
+    "aliases_complete": true,
+    "collections": [
+      {"name": "synthetic_old_schema", "vector_type": "dense", "dimensions": 768, "distance": "Cosine", "points_count": 0, "points_count_exact": true, "status": "green"},
+      {"name": "synthetic_old_messages", "vector_type": "dense", "dimensions": 768, "distance": "Cosine", "points_count": 0, "points_count_exact": true, "status": "green"}
+    ],
+    "aliases": [],
+    "old_provider": "unknown",
+    "old_model": "unknown"
+  }
+}

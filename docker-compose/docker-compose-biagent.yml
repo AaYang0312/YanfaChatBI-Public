@@ -1,0 +1,151 @@
+# YanfaChatBI 单项目编排：经营问数 agent（bi-agent-pg 数据源）
+# 包含全部依赖：MongoDB / Redis / Qdrant / Spreadsheet Postgres / 后端 / 前端
+# 用法：
+#   cd docker-compose
+#   docker compose -f docker-compose-biagent.yml --env-file .env.biagent -p biagent-yanfachatbi up -d --build
+#
+# 数据库 bi-agent-postgres 通过外部网络 bi-agent-pg_default 直连（容器名访问，无需 host 端口）
+# LLM 代理运行在宿主机 127.0.0.1:3425，容器内经 host.docker.internal 访问
+
+services:
+  biagent-mongodb:
+    image: mongo:latest
+    container_name: biagent-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: yanfachatbi
+      MONGO_INITDB_ROOT_PASSWORD: yanfachatbi
+      MONGO_INITDB_DATABASE: yanfachatbi
+    volumes:
+      - biagent-mongodb-data:/data/db
+    networks:
+      - biagent-internal
+
+  biagent-redis:
+    image: redis:latest
+    container_name: biagent-redis
+    restart: always
+    command: >
+      redis-server
+      --aclfile /usr/local/etc/redis/redis.acl
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --stop-writes-on-bgsave-error no
+    volumes:
+      - biagent-redis-data:/data
+      - ./redis.acl:/usr/local/etc/redis/redis.acl:ro
+    networks:
+      - biagent-internal
+
+  biagent-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: biagent-qdrant
+    restart: always
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
+    volumes:
+      - biagent-qdrant-data:/qdrant/storage
+    networks:
+      - biagent-internal
+
+  biagent-spreadsheet-postgres:
+    image: postgres:16-alpine
+    container_name: biagent-spreadsheet-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: yanfachatbi
+      POSTGRES_PASSWORD: yanfachatbi
+      POSTGRES_DB: yanfachatbi_spreadsheet_storage
+    volumes:
+      - biagent-spreadsheet-postgres-data:/var/lib/postgresql/data
+    networks:
+      - biagent-internal
+
+  biagent-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: biagent-backend
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      - IS_DOCKER=true
+      - PORT=3000
+      - ENVIRONMENT=PRODUCTION
+      - MAX_CHATS_PER_USER=${MAX_CHATS_PER_USER}
+      - CORS_ALLOWED_ORIGIN=${CORS_ALLOWED_ORIGIN}
+      - YANFA_ADMIN_USERNAME=${YANFA_ADMIN_USERNAME}
+      - YANFA_ADMIN_PASSWORD=${YANFA_ADMIN_PASSWORD}
+      - SCHEMA_ENCRYPTION_KEY=${SCHEMA_ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - USER_JWT_EXPIRATION_MILLISECONDS=${USER_JWT_EXPIRATION_MILLISECONDS}
+      - USER_JWT_REFRESH_EXPIRATION_MILLISECONDS=${USER_JWT_REFRESH_EXPIRATION_MILLISECONDS}
+      - YANFA_MONGODB_URI=${YANFA_MONGODB_URI}
+      - YANFA_MONGODB_NAME=${YANFA_MONGODB_NAME}
+      - YANFA_REDIS_HOST=biagent-redis
+      - YANFA_REDIS_PORT=6379
+      - YANFA_REDIS_USERNAME=yanfachatbi
+      - YANFA_REDIS_PASSWORD=default
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL}
+      - EMBEDDING_SCHEMA_COLLECTION=${EMBEDDING_SCHEMA_COLLECTION:-}
+      - EMBEDDING_MESSAGE_COLLECTION=${EMBEDDING_MESSAGE_COLLECTION:-}
+      - QUERY_OBJECTS_ENABLED=${QUERY_OBJECTS_ENABLED:-false}
+      - EMBEDDING_OBJECT_SCHEMA_COLLECTION=${EMBEDDING_OBJECT_SCHEMA_COLLECTION:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL}
+      - QDRANT_HOST=biagent-qdrant
+      - QDRANT_PORT=6334
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - QDRANT_USE_TLS=false
+      - SPREADSHEET_POSTGRES_HOST=biagent-spreadsheet-postgres
+      - SPREADSHEET_POSTGRES_PORT=5432
+      - SPREADSHEET_POSTGRES_DATABASE=yanfachatbi_spreadsheet_storage
+      - SPREADSHEET_POSTGRES_USERNAME=yanfachatbi
+      - SPREADSHEET_POSTGRES_PASSWORD=yanfachatbi
+      - SPREADSHEET_POSTGRES_SSL_MODE=disable
+      - SPREADSHEET_DATA_ENCRYPTION_KEY=${SPREADSHEET_DATA_ENCRYPTION_KEY}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - biagent-mongodb
+      - biagent-redis
+      - biagent-qdrant
+      - biagent-spreadsheet-postgres
+    networks:
+      - biagent-internal
+      - bi-agent-pg_default
+
+  biagent-client:
+    build:
+      context: ../client
+      dockerfile: Dockerfile
+      args:
+        - VITE_FRONTEND_BASE_URL=${VITE_FRONTEND_BASE_URL}
+        - VITE_API_URL=${VITE_API_URL}
+        - VITE_ENVIRONMENT=PRODUCTION
+    container_name: biagent-client
+    restart: always
+    ports:
+      - 5173:5173
+    depends_on:
+      - biagent-backend
+    networks:
+      - biagent-internal
+
+volumes:
+  biagent-mongodb-data:
+  biagent-redis-data:
+  biagent-qdrant-data:
+  biagent-spreadsheet-postgres-data:
+
+networks:
+  biagent-internal:
+    driver: bridge
+  bi-agent-pg_default:
+    external: true

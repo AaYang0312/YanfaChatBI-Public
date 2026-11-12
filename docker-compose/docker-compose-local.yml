@@ -1,0 +1,165 @@
+version: '3'
+services:
+  yanfachatbi-mongodb:
+    image: mongo:latest
+    container_name: yanfachatbi-mongodb
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: yanfachatbi
+      MONGO_INITDB_ROOT_PASSWORD: yanfachatbi
+      MONGO_INITDB_DATABASE: yanfachatbi
+    volumes:
+      - yanfachatbi-mongodb-data:/data/db
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-redis:
+    image: redis:latest
+    container_name: yanfachatbi-redis
+    restart: always
+    command: >
+      redis-server 
+      --aclfile /usr/local/etc/redis/redis.acl
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --stop-writes-on-bgsave-error no
+    ports:
+      - 6379:6379
+    volumes:
+      - yanfachatbi-redis-data:/data
+      - ./redis.acl:/usr/local/etc/redis/redis.acl:ro
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-spreadsheet-postgres:
+    image: postgres:16-alpine
+    container_name: yanfachatbi-spreadsheet-postgres
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_USER: yanfachatbi
+      POSTGRES_PASSWORD: yanfachatbi
+      POSTGRES_DB: yanfachatbi_spreadsheet_storage
+    volumes:
+      - yanfachatbi-spreadsheet-postgres-data:/var/lib/postgresql/data
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: yanfachatbi-qdrant
+    restart: always
+    ports:
+      - 6333:6333   # REST API
+      - 6334:6334   # gRPC
+    volumes:
+      - yanfachatbi-qdrant-data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__API_KEY: yanfachatbi-qdrant-local-key
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: yanfachatbi-backend
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      - IS_DOCKER=${IS_DOCKER} # true or false
+      - PORT=${PORT} # 3000
+      - ENVIRONMENT=${ENVIRONMENT} # DEVELOPMENT, PRODUCTION
+      - CORS_ALLOWED_ORIGIN=${CORS_ALLOWED_ORIGIN} # Frontend exposed base url
+      - LANDING_PAGE_CORS_ALLOWED_ORIGIN=${LANDING_PAGE_CORS_ALLOWED_ORIGIN} # Landing page exposed base url (optional)
+      - MAX_CHATS_PER_USER=${MAX_CHATS_PER_USER} # 0 for trial/development mode(max 2 connection), 1 for unlimited
+      - YANFA_ADMIN_USERNAME=${YANFA_ADMIN_USERNAME} # admin username
+      - YANFA_ADMIN_PASSWORD=${YANFA_ADMIN_PASSWORD} # admin password
+      - SCHEMA_ENCRYPTION_KEY=${SCHEMA_ENCRYPTION_KEY} # 32 bytes
+      - JWT_SECRET=${JWT_SECRET} # 32 bytes
+      - USER_JWT_EXPIRATION_MILLISECONDS=${USER_JWT_EXPIRATION_MILLISECONDS} # 1000 * 60 * 60 * 24 * 30
+      - USER_JWT_REFRESH_EXPIRATION_MILLISECONDS=${USER_JWT_REFRESH_EXPIRATION_MILLISECONDS} # 1000 * 60 * 60 * 24 * 30
+      - YANFA_MONGODB_URI=${YANFA_MONGODB_URI} # mongodb://localhost:27017/yanfachatbi
+      - YANFA_MONGODB_NAME=${YANFA_MONGODB_NAME} # yanfachatbi
+      - YANFA_REDIS_HOST=${YANFA_REDIS_HOST} # yanfachatbi-redis
+      - YANFA_REDIS_PORT=${YANFA_REDIS_PORT} # 6379
+      - YANFA_REDIS_USERNAME=${YANFA_REDIS_USERNAME} # yanfachatbi
+      - YANFA_REDIS_PASSWORD=${YANFA_REDIS_PASSWORD} # default
+      - OPENAI_API_KEY=${OPENAI_API_KEY} # OpenAI API key - enables GPT-4 Omni, GPT-4 Turbo, O1, etc.
+      - EXAMPLE_DB_TYPE=${EXAMPLE_DB_TYPE} # postgres, clickhouse, mysql, yugabyte...
+      - EXAMPLE_DB_HOST=${EXAMPLE_DB_HOST} # localhost
+      - EXAMPLE_DB_PORT=${EXAMPLE_DB_PORT} # 5432
+      - EXAMPLE_DB_NAME=${EXAMPLE_DB_NAME} # testdb
+      - EXAMPLE_DB_USERNAME=${EXAMPLE_DB_USERNAME} # postgres
+      - EXAMPLE_DB_PASSWORD=${EXAMPLE_DB_PASSWORD} # postgres
+      - SMTP_HOST=${SMTP_HOST} # smtp.gmail.com
+      - SMTP_PORT=${SMTP_PORT} # 587
+      - SMTP_SECURE=${SMTP_SECURE} # false
+      - SMTP_USER=${SMTP_USER} # your-email@gmail.com
+      - SMTP_PASSWORD=${SMTP_PASSWORD} # your-app-password
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME} # YanfaChatBI - AI Database Copilot
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL} # your-email@gmail.com
+      - SPREADSHEET_POSTGRES_HOST=${SPREADSHEET_POSTGRES_HOST} # yanfachatbi-spreadsheet-postgres
+      - SPREADSHEET_POSTGRES_PORT=${SPREADSHEET_POSTGRES_PORT} # 5432
+      - SPREADSHEET_POSTGRES_DATABASE=${SPREADSHEET_POSTGRES_DATABASE} # yanfachatbi_spreadsheet_storage
+      - SPREADSHEET_POSTGRES_USERNAME=${SPREADSHEET_POSTGRES_USERNAME} # yanfachatbi_spreadsheet
+      - SPREADSHEET_POSTGRES_PASSWORD=${SPREADSHEET_POSTGRES_PASSWORD} # your_secure_password_here
+      - SPREADSHEET_POSTGRES_SSL_MODE=${SPREADSHEET_POSTGRES_SSL_MODE} # disable
+      - SPREADSHEET_DATA_ENCRYPTION_KEY=${SPREADSHEET_DATA_ENCRYPTION_KEY} # 32 bytes for AES-GCM
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} # Google OAuth client ID
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET} # Google OAuth client secret
+      - GOOGLE_REDIRECT_URL=${GOOGLE_REDIRECT_URL} # Google OAuth redirect URL (e.g., http://localhost:5173/auth/google/callback)
+      - QDRANT_HOST=${QDRANT_HOST:-yanfachatbi-qdrant} # Qdrant vector DB host
+      - QDRANT_PORT=${QDRANT_PORT:-6334} # Qdrant gRPC port
+      - QDRANT_API_KEY=${QDRANT_API_KEY} # Qdrant API key (optional for local)
+      - QDRANT_USE_TLS=${QDRANT_USE_TLS:-false} # Use TLS for Qdrant connection
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER} # openai or gemini (auto-detected if empty)
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL} # e.g., text-embedding-3-small (uses provider default if empty)
+      - EMBEDDING_SCHEMA_COLLECTION=${EMBEDDING_SCHEMA_COLLECTION:-}
+      - EMBEDDING_MESSAGE_COLLECTION=${EMBEDDING_MESSAGE_COLLECTION:-}
+      - QUERY_OBJECTS_ENABLED=${QUERY_OBJECTS_ENABLED:-false}
+      - EMBEDDING_OBJECT_SCHEMA_COLLECTION=${EMBEDDING_OBJECT_SCHEMA_COLLECTION:-}
+    depends_on:
+      - yanfachatbi-mongodb
+      - yanfachatbi-redis
+      - yanfachatbi-spreadsheet-postgres
+      - yanfachatbi-qdrant
+    networks:
+      - yanfachatbi-network
+
+  yanfachatbi-client:
+    build:
+      context: ../client
+      dockerfile: Dockerfile
+      args: # These are the environment variables for the client
+        - VITE_FRONTEND_BASE_URL=${VITE_FRONTEND_BASE_URL}
+        - VITE_API_URL=${VITE_API_URL}
+        - VITE_ENVIRONMENT=${VITE_ENVIRONMENT}
+        - VITE_YANFA_WHITELIST_ADDRESSES=${VITE_YANFA_WHITELIST_ADDRESSES}
+        - VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
+        - VITE_GOOGLE_REDIRECT_URI=${VITE_GOOGLE_REDIRECT_URI}
+    container_name: yanfachatbi-client
+    restart: always
+    ports:
+      - 5173:5173
+    depends_on:
+      - yanfachatbi-backend
+    networks:
+      - yanfachatbi-network
+
+
+volumes:
+  yanfachatbi-mongodb-data:
+  yanfachatbi-redis-data:
+  yanfachatbi-spreadsheet-postgres-data:
+  yanfachatbi-qdrant-data:
+
+networks:
+  yanfachatbi-network:
+    driver: bridge
+    external: true

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Render the two tokens from the approved release/registration receipt before use.
+set -eu
+if [ "$#" -ne 0 ]; then
+    printf '%s\n' 'INVALID_REQUEST' >&2
+    exit 2
+fi
+exec '@MAINTENANCE_EXECUTABLE@' --source-id '@SOURCE_UUID@' incremental

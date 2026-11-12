@@ -1,0 +1,173 @@
+import { AuthResponse, AuthResponseWrapper, LoginFormData, SignupFormData, UserResponse } from '../types/auth';
+import axios from './axiosConfig';
+import { getErrorMessage, getResponseErrorMessage } from '../utils/message';
+
+const API_URL = import.meta.env.VITE_API_URL;
+
+// Prevent duplicate auth checks
+let authCheckPromise: Promise<UserResponse> | null = null;
+let lastAuthCheckTime = 0;
+const AUTH_CHECK_DEBOUNCE = 1000; // 1 second debounce
+
+const authService = {
+    async getUser(): Promise<UserResponse> {
+        const now = Date.now();
+        
+        // If there's an ongoing request, return it
+        if (authCheckPromise) {
+            console.log('AuthService: Reusing existing auth check promise');
+            return authCheckPromise;
+        }
+        
+        // If we checked very recently, debounce
+        if (now - lastAuthCheckTime < AUTH_CHECK_DEBOUNCE) {
+            console.log('AuthService: Debouncing auth check');
+            throw new Error('Auth check debounced');
+        }
+        
+        lastAuthCheckTime = now;
+        
+        authCheckPromise = (async () => {
+            try {
+                const response = await axios.get<UserResponse>(`${API_URL}/auth/`, {
+                    withCredentials: true,
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                return response.data;
+            } catch (error: unknown) {
+                console.error('Get user error:', error);
+                throw Object.assign(new Error(getErrorMessage(error, 'Get user failed')), {
+                    status: axios.isAxiosError(error) ? error.response?.status : undefined,
+                });
+
+            } finally {
+                // Clear the promise after a short delay to allow for quick retries
+                setTimeout(() => {
+                    authCheckPromise = null;
+                }, 100);
+            }
+        })();
+        
+        return authCheckPromise;
+    },
+    async login(data: LoginFormData): Promise<AuthResponse> {
+        try {
+            const response = await axios.post<AuthResponseWrapper>(`${API_URL}/auth/login`, {
+                username_or_email: data.usernameOrEmail,
+                password: data.password,
+            });
+            const authData = response.data.data;
+            if (authData?.access_token) {
+                localStorage.setItem('token', authData.access_token);
+                localStorage.setItem('refresh_token', authData.refresh_token);
+            }
+            return authData;
+        } catch (error: unknown) {
+            console.log("login error", error);
+            throw new Error(getErrorMessage(error, 'Login failed'));
+        }
+    },
+
+    async signup(data: SignupFormData): Promise<AuthResponse> {
+        try {
+            const response = await axios.post<AuthResponseWrapper>(`${API_URL}/auth/signup`, {
+                username: data.username,
+                email: data.email,
+                password: data.password,
+                user_signup_secret: data.userSignupSecret
+            });
+            const authData = response.data.data;
+            if (authData?.access_token) {
+                localStorage.setItem('token', authData.access_token);
+                localStorage.setItem('refresh_token', authData.refresh_token);
+            }
+            return authData;
+        } catch (error: unknown) {
+            throw new Error(getErrorMessage(error, 'Signup failed'));
+        }
+    },
+    async refreshToken(): Promise<string | null> {
+        try {
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (!refreshToken) return null;
+
+            const response = await axios.post(`${API_URL}/auth/refresh-token`, {}, {
+                headers: {
+                    Authorization: `Bearer ${refreshToken}`
+                }
+            });
+
+            if (response.data.data?.access_token) {
+                localStorage.setItem('token', response.data.data.access_token);
+                return response.data.data.access_token;
+            }
+            return null;
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            return null;
+        }
+    },
+
+    logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
+    },
+
+    async googleOAuthCallback(code: string, redirectURI: string, action = 'login'): Promise<AuthResponse> {
+        try {
+            const payload = {
+                code,
+                redirect_uri: redirectURI,
+                purpose: 'auth',
+                action,
+            };
+            
+            
+            const response = await axios.post(`${API_URL}/auth/google/callback`, payload);
+            console.log('Google OAuth Response:', response.data);
+            
+            // Response structure from backend: { access_token, refresh_token, user }
+            const accessToken = response.data?.access_token;
+            const refreshToken = response.data?.refresh_token;
+            
+            if (accessToken && refreshToken) {
+                console.log('Storing tokens...');
+                localStorage.setItem('token', accessToken);
+                localStorage.setItem('refresh_token', refreshToken);
+                console.log('Tokens stored successfully');
+            } else {
+                console.warn('No tokens found in response:', { accessToken, refreshToken });
+            }
+            
+            return response.data;
+        } catch (error: unknown) {
+            console.error('Google OAuth callback error:', error);
+            throw new Error(getErrorMessage(error, 'Google OAuth failed'));
+        }
+    },
+
+    async forgotPassword(email: string): Promise<{ message: string }> {
+        try {
+            const response = await axios.post(`${API_URL}/auth/forgot-password`, { email });
+            return { message: response.data.data.message };
+        } catch (error: unknown) {
+            throw new Error(getResponseErrorMessage(error, 'Failed to send reset email'));
+        }
+    },
+
+    async resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+        try {
+            await axios.post(`${API_URL}/auth/reset-password`, {
+                email,
+                otp,
+                new_password: newPassword,
+            });
+        } catch (error: unknown) {
+            throw new Error(getResponseErrorMessage(error, 'Failed to reset password'));
+        }
+    },
+};
+
+export default authService; 

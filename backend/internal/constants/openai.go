@@ -1,0 +1,362 @@
+package constants
+
+var OpenAILLMModels = []LLMModel{
+	// OpenAI-compatible proxy models (require OPENAI_BASE_URL override)
+	{
+		ID:                  "remote-magpie/cursor/grok-4.6",
+		Provider:            OpenAI,
+		DisplayName:         "Grok 4.6 (OpenAI-compatible proxy)",
+		IsEnabled:           true,
+		Default:             ptrBool(true),
+		MaxCompletionTokens: 28000,
+		Temperature:         0.6,
+		InputTokenLimit:     256000,
+		Description:         "xAI Grok 4.6 served through an OpenAI-compatible proxy endpoint (Magpie/cursor)",
+	},
+	// BigModel models (require the official OPENAI_BASE_URL override)
+	{
+		ID:                  "glm-5.3-flash",
+		Provider:            OpenAI,
+		DisplayName:         "GLM-5.3-Flash",
+		IsEnabled:           true,
+		Default:             ptrBool(true),
+		MaxCompletionTokens: 8192, // Application budget; vendor maximum output is 128K.
+		Temperature:         1,
+		InputTokenLimit:     1000000,
+		Description:         "GLM-5.3-Flash via the official BigModel OpenAI-compatible endpoint (1M context, 128K vendor maximum output)",
+	},
+	// GPT-5.2 Series (Latest Frontier)
+	{
+		ID:                  "gpt-5.2",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5.2 (Best for Coding & Agentic)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 128000,
+		Temperature:         1,
+		InputTokenLimit:     400000,
+		Description:         "Most advanced frontier model, best for coding tasks and agentic applications across all industries",
+	},
+	{
+		ID:                  "gpt-5.2-pro",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5.2 Pro (Smartest & Precise)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 128000,
+		Temperature:         1,
+		InputTokenLimit:     400000,
+		Description:         "Version of GPT-5.2 that produces smarter and more precise responses, uses extra compute for best quality",
+	},
+	// GPT-5.1 Series
+	{
+		ID:                  "gpt-5.1",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5.1 (Coding & Agentic)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 128000,
+		Temperature:         1,
+		InputTokenLimit:     400000,
+		Description:         "Previous flagship model for coding and agentic tasks with configurable reasoning effort",
+	},
+	// GPT-5 Series
+	{
+		ID:                  "gpt-5",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5 (Full Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 100000,
+		Temperature:         1,
+		InputTokenLimit:     400000,
+		Description:         "Full reasoning model with configurable reasoning effort for complex problem-solving tasks",
+	},
+	{
+		ID:                  "gpt-5-pro",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5 Pro (Enhanced Precision)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 128000,
+		Temperature:         1,
+		InputTokenLimit:     400000,
+		Description:         "Version of GPT-5 that produces smarter and more precise responses with extra compute",
+	},
+	{
+		ID:                  "gpt-5-mini",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5 Mini (Fast & Cost-Efficient)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 50000,
+		Temperature:         1,
+		InputTokenLimit:     128000,
+		Description:         "Faster, cost-efficient version of GPT-5 for well-defined tasks with good performance",
+	},
+	{
+		ID:                  "gpt-5-nano",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-5 Nano (Fastest)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 30000,
+		Temperature:         1,
+		InputTokenLimit:     100000,
+		Description:         "Fastest and most cost-efficient version of GPT-5 for rapid inference",
+	},
+	// Reasoning Models (O-Series)
+	{
+		ID:                  "o3",
+		Provider:            OpenAI,
+		DisplayName:         "O3 (Complex Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 100000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Reasoning model for complex tasks, succeeded by GPT-5 but still available for specific use cases",
+	},
+	{
+		ID:                  "o3-pro",
+		Provider:            OpenAI,
+		DisplayName:         "O3 Pro (Enhanced Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 100000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Version of O3 with more compute for better reasoning responses and complex problem analysis",
+	},
+	{
+		ID:                  "o4-mini",
+		Provider:            OpenAI,
+		DisplayName:         "O4 Mini (Fast Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 100000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Fast, cost-efficient reasoning model optimized for coding and visual tasks",
+	},
+	{
+		ID:                  "o3-mini",
+		Provider:            OpenAI,
+		DisplayName:         "O3 Mini (Small Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 50000,
+		Temperature:         1,
+		InputTokenLimit:     128000,
+		Description:         "Small model alternative to O3, faster and more cost-effective for reasoning tasks",
+	},
+	{
+		ID:                  "o3-deep-research",
+		Provider:            OpenAI,
+		DisplayName:         "O3 Deep Research (Research)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 100000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Most advanced research model for deep, complex analysis of large datasets and documents",
+	},
+	// GPT-4.1 Series (Chat Completions)
+	{
+		ID:                  "gpt-4.1",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-4.1 (Smartest Non-Reasoning)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 30000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Smartest non-reasoning model, excellent for general purpose tasks without reasoning overhead",
+	},
+	{
+		ID:                  "gpt-4.1-mini",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-4.1 Mini (Fast General)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 20000,
+		Temperature:         1,
+		InputTokenLimit:     128000,
+		Description:         "Smaller, faster version of GPT-4.1 for focused general-purpose tasks",
+	},
+	// GPT-4o Series (Chat Completions - Multimodal)
+	{
+		ID:                  "gpt-4o",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-4o (Omni - Fast & Intelligent)",
+		IsEnabled:           true,
+		Default:             ptrBool(true),
+		MaxCompletionTokens: 30000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Fast, intelligent, and flexible multimodal model with vision and audio capabilities",
+	},
+	{
+		ID:                  "gpt-4o-mini",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-4o Mini (Lightweight)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 20000,
+		Temperature:         1,
+		InputTokenLimit:     200000,
+		Description:         "Fast and affordable small model for focused tasks, supports text and vision",
+	},
+	// Previous Generation (Chat Completions)
+	{
+		ID:                  "gpt-4-turbo",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-4 Turbo (Previous Generation)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 20000,
+		Temperature:         1,
+		InputTokenLimit:     128000,
+		Description:         "Older high-intelligence GPT-4 variant, still available for compatibility",
+	},
+	{
+		ID:                  "gpt-3.5-turbo",
+		Provider:            OpenAI,
+		DisplayName:         "GPT-3.5 Turbo (Legacy)",
+		IsEnabled:           true,
+		MaxCompletionTokens: 15000,
+		Temperature:         1,
+		InputTokenLimit:     16385,
+		Description:         "Legacy GPT model for cheaper chat tasks, maintained for backward compatibility",
+	},
+}
+
+// OpenAI Initial LLM Response Schema
+const OpenAILLMResponseSchema = `{
+   "type": "object",
+   "required": ["assistantMessage"],
+   "properties": {
+       "queries": {
+           "type": "array",
+           "items": {
+               "type": "object",
+               "required": [
+                   "query",
+                   "queryType",
+                   "explanation",
+                   "isCritical",
+                   "canRollback",
+                   "estimateResponseTime"
+               ],
+               "properties": {
+                   "query": {
+                       "type": "string",
+                       "description": "DB query to fetch details from database."
+                   },
+                   "tables": {
+                       "type": "string",
+                       "description": "Tables/collection being used in the query(comma separated)"
+                   },
+                   "queryType": {
+                       "type": "string",
+                       "description": "SQL query type(SELECT,UPDATE,INSERT,DELETE,DDL)"
+                   },
+                   "pagination": {
+                       "type": "object",
+                       "required": [
+                           "paginatedQuery",
+                           "countQuery"
+                       ],
+                       "properties": {
+                           "paginatedQuery": {
+                               "type": "string",
+                               "description": "This is the query for SUBSEQUENT PAGES (page 2, 3, etc) — NOT for the first page. The 'query' field above is used for the first page and MUST NOT contain {{cursor_value}} or offset_size. CURSOR-BASED (preferred for SELECT/find queries on large data): use '{{cursor_value}}' placeholder in the WHERE/filter condition. SQL example: SELECT id,name FROM users WHERE id > '{{cursor_value}}' ORDER BY id ASC LIMIT 50. MongoDB find example: db.users.find({createdAt:{$gt:'{{cursor_value}}'}},{name:1,createdAt:1}).sort({createdAt:1}).limit(50). cursor_field MUST be in SELECT/projection. OFFSET-BASED (for aggregations without natural cursor): use 'offset_size' placeholder. SQL: OFFSET offset_size LIMIT 50. MongoDB find: .skip(offset_size).limit(50). MongoDB aggregate: db.col.aggregate([..., {$skip: offset_size}, {$limit: 50}]). IMPORTANT: use 'offset_size' NOT '{{cursor_value}}' for $skip/$offset pagination. Set cursor_field empty for offset mode. EMPTY STRING when user requests < 50 records. IMPORTANT: The 'query' field must be the SAME query but WITHOUT the cursor/offset/skip condition — it fetches the first page of results."
+                           },
+                           "cursor_field": {
+                               "type": "string",
+                               "description": "Field/column used as the pagination cursor (e.g. 'id', 'created_at', 'createdAt'). Must be present in the SELECT/projection result. Leave EMPTY STRING for offset-based pagination."
+                           },
+                           "page_size": {
+                               "type": "number",
+                               "description": "Number of records per page. Use 50."
+                           },
+                           "countQuery": {
+                               "type": "string",
+                               "description": "(Only applicable for Fetching, Getting data) RULES FOR countQuery:\n1. IF the original query has a limit < 50 -> countQuery MUST BE EMPTY STRING\n2. IF the user explicitly requests a specific number of records (e.g., \"get 60 latest users\") -> countQuery should return exactly that number (using the same filters but with a limit equal to user's requested count)\n3. OTHERWISE -> provide a COUNT query with EXACTLY THE SAME filter conditions\n\nEXAMPLES:\n- Original: \"SELECT * FROM users LIMIT 5\" -> countQuery: \"\"\n- Original: \"SELECT * FROM users ORDER BY created_at DESC LIMIT 10\" -> countQuery: \"\"\n- Original: \"SELECT * FROM users LIMIT 60\" -> countQuery: \"SELECT COUNT(*) FROM users LIMIT 60\" (explicit limit > 50, return that exact count)\n- User asked: \"get 150 latest users\" -> countQuery: \"SELECT COUNT(*) FROM users LIMIT 150\" (return exactly requested number)\n- Original: \"SELECT * FROM users WHERE status = 'active'\" -> countQuery: \"SELECT COUNT(*) FROM users WHERE status = 'active'\"\n- Original: \"SELECT * FROM users WHERE created_at > '2023-01-01'\" -> countQuery: \"SELECT COUNT(*) FROM users WHERE created_at > '2023-01-01'\"\n\nREMEMBER: The purpose of countQuery is ONLY to support pagination for large result sets. If the user explicitly asks for a specific number of records (e.g., \"get 60 latest users\"), then countQuery should return exactly that number so the pagination system knows the total count. Never include OFFSET in countQuery. If the original query had filter conditions, the COUNT query MUST include the EXACT SAME conditions."
+                           }
+                       }
+                   },
+                   "isCritical": {
+                       "type": "boolean",
+                       "description": "Indicates if the query is critical."
+                   },
+                   "canRollback": {
+                       "type": "boolean",
+                       "description": "Indicates if the operation can be rolled back."
+                   },
+                   "explanation": {
+                       "type": "string",
+                       "description": "Description of what the query does. It should be descriptive and helpful to the user and guide the user with appropriate actions & results."
+                   },
+                   "exampleResult": {
+                       "type": "array",
+                       "items": {
+                           "type": "object",
+                           "description": "Key-value pairs representing column names and example values. Avoid giving too much data in the exampleResultString, just give 1-2 rows of data or if there is too much data, then give only limited fields of data, if a field contains too much data, then give less data from that field",
+                           "additionalProperties": {
+                               "type": "string"
+                           }
+                       },
+                       "description": "An example array of results that the query might return."
+                   },
+                   "rollbackQuery": {
+                       "type": "string",
+                       "description": "Query to undo this operation (if canRollback=true), default empty, give 100% correct,error free rollbackQuery with actual values, if not applicable then give empty string as rollbackDependentQuery will be used instead"
+                   },
+                   "estimateResponseTime": {
+                       "type": "number",
+                       "description": "Estimated time (in milliseconds) to fetch the response."
+                   },
+                   "rollbackDependentQuery": {
+                       "type": "string",
+                       "description": "Query to run by the user to get the required data that AI needs in order to write a successful rollbackQuery"
+                   }
+               },
+               "additionalProperties": false
+           },
+           "description": "List of queries related to orders."
+       },
+       "actionButtons": {
+           "type": "array",
+           "items": {
+               "type": "object",
+               "required": ["label", "action", "isPrimary"],
+               "properties": {
+                   "label": {
+                       "type": "string",
+                       "description": "Display text for the button that the user will see."
+                   },
+                   "action": {
+                       "type": "string",
+                       "description": "Action identifier that will be processed by the frontend. Common actions: refresh_schema etc."
+                   },
+                   "isPrimary": {
+                       "type": "boolean",
+                       "description": "Whether this is a primary (highlighted) action button."
+                   }
+               }
+           },
+           "description": "List of action buttons to display to the user. Use these to suggest helpful actions like refreshing schema when schema issues are detected. NEVER generate action buttons for pagination (e.g., Show next N records, Load more, Next page) — pagination is handled automatically by the system."
+       },
+       "assistantMessage": {
+           "type": "string",
+           "description": "Message from the assistant providing context about the user's request. It should be descriptive and helpful to the user and guide the user with appropriate actions."
+       }
+   },
+   "additionalProperties": false
+}`
+
+const OpenAIRecommendationsResponseSchema = `{
+  "type": "object",
+  "properties": {
+    "recommendations": {
+      "type": "array",
+      "description": "An array of 60 query recommendations (minimum 40 if 60 not possible)",
+      "items": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The recommendation text that users can ask"
+          }
+        }
+      }
+    }
+  },
+  "required": ["recommendations"]
+}`

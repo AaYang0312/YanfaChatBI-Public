@@ -1,0 +1,783 @@
+import React, { useState, useEffect } from 'react';
+import { AlertCircle, ChevronDown, Copy, Check } from 'lucide-react';
+import { Connection } from '../../../types/chat';
+import { zhCN } from '../../../i18n/zh-CN';
+
+// Define FormErrors interface locally instead of importing it
+interface FormErrors {
+  host?: string;
+  port?: string;
+  database?: string;
+  username?: string;
+  auth_database?: string;
+  ssl_cert_url?: string;
+  ssl_key_url?: string;
+  ssl_root_cert_url?: string;
+  ssh_host?: string;
+  ssh_port?: string;
+  ssh_username?: string;
+  ssh_private_key?: string;
+}
+
+interface BasicConnectionTabProps {
+  formData: Connection;
+  errors: FormErrors;
+  touched: Record<string, boolean>;
+  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  handleBlur: (e: React.FocusEvent<HTMLInputElement>) => void;
+  validateField: (name: string, value: Connection) => string | undefined;
+  mongoUriInputRef: React.RefObject<HTMLInputElement>;
+  onMongoUriChange?: (uri: string) => void;
+}
+
+  // Build connection URI from form data
+  const buildConnectionUri = (data: Connection): string => {
+    if (!data.host || !data.database) return '';
+
+    let uri = '';
+    const username = data.username || '';
+    // Always show <password> placeholder to indicate where password should go
+    const password = '<password>';
+    const host = data.host;
+    const port = data.port || getDefaultPort(data.type);
+    const database = data.database;
+
+    switch (data.type) {
+      case 'postgresql':
+      case 'yugabytedb':
+        uri = `postgresql://${username}${username ? ':' + password : ''}@${host}${port ? ':' + port : ''}/${database}`;
+        if (data.use_ssl && data.ssl_mode && data.ssl_mode !== 'disable') {
+          uri += `?sslmode=${data.ssl_mode}`;
+        }
+        break;
+      case 'mysql':
+        uri = `mysql://${username}${username ? ':' + password : ''}@${host}${port ? ':' + port : ''}/${database}`;
+        if (data.use_ssl) {
+          uri += '?useSSL=true';
+        }
+        break;
+      case 'clickhouse':
+        uri = `clickhouse://${username}${username ? ':' + password : ''}@${host}${port ? ':' + port : ''}/${database}`;
+        if (data.use_ssl) {
+          uri += '?secure=true';
+        }
+        break;
+      case 'mongodb':
+        uri = `mongodb://${username}${username ? ':' + password : ''}@${host}${port ? ':' + port : ''}/${database}`;
+        if (data.auth_database && data.auth_database !== 'admin') {
+          uri += `?authSource=${data.auth_database}`;
+        }
+        break;
+      default:
+        return '';
+    }
+
+    return uri;
+  };
+
+  // Get default port for database type
+  const getDefaultPort = (dbType: string): string => {
+    switch (dbType) {
+      case 'postgresql':
+      case 'timescaledb':
+      case 'yugabytedb':
+        return '5432';
+      case 'mysql':
+      case 'starrocks':
+        return '3306';
+      case 'clickhouse':
+        return '8123';
+      case 'mongodb':
+        return '27017';
+      default:
+        return '';
+    }
+  };
+const BasicConnectionTab: React.FC<BasicConnectionTabProps> = ({
+  formData,
+  errors,
+  touched,
+  handleChange,
+  handleBlur,
+  validateField,
+  mongoUriInputRef,
+  onMongoUriChange
+}) => {
+  // State to track the connection URI value independently
+  const [connectionUri, setConnectionUri] = useState<string>('');
+
+  // State to track which address was copied (for showing checkmark)
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+
+  // Custom blur handler that validates the field using the passed validateField function
+  const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name } = e.target;
+    const error = validateField(name, formData);
+    if (error) {
+      // Error will be handled by the parent component via the validateField callback
+      // The parent component updates the errors state
+      console.log(`Validation error for ${name}: ${error}`);
+    }
+    // Call the parent's handleBlur to update touched state
+    handleBlur(e);
+  };
+
+  // Unified function to parse connection URIs for different database types
+  const parseConnectionUri = (uri: string, dbType: string) => {
+    try {
+      // Remove whitespace
+      uri = uri.trim();
+      if (!uri) return;
+
+      let parsedData: Partial<Connection> = {};
+
+      switch (dbType) {
+        case 'postgresql':
+        case 'yugabytedb':
+          parsedData = parsePostgreSQLUri(uri);
+          break;
+        case 'mysql':
+          parsedData = parseMySQLUri(uri);
+          break;
+        case 'clickhouse':
+          parsedData = parseClickHouseUri(uri);
+          break;
+        case 'mongodb':
+          parsedData = parseMongoDBUri(uri);
+          break;
+        default:
+          console.log(`URI parsing not supported for database type: ${dbType}`);
+          return;
+      }
+
+      if (parsedData && Object.keys(parsedData).length > 0) {
+        console.log(`${dbType} URI parsed successfully`, parsedData);
+        
+        // Update formData through parent component
+        Object.entries(parsedData).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            const mockEvent = {
+              target: { name: key, value: String(value) }
+            } as React.ChangeEvent<HTMLInputElement>;
+            handleChange(mockEvent);
+          }
+        });
+      }
+    } catch (err) {
+      console.log(`Invalid ${dbType} URI format`, err);
+    }
+  };
+
+  // PostgreSQL URI parser: postgresql://user:password@host:port/database?params
+  const parsePostgreSQLUri = (uri: string): Partial<Connection> => {
+    const match = uri.match(/^postgresql:\/\/(?:([^:]+)(?::([^@]+))?@)?([^:/]+)(?::(\d+))?(?:\/([^?]+))?(?:\?(.*))?$/);
+    if (!match) throw new Error('Invalid PostgreSQL URI format');
+
+    const [, username, password, host, port, database, params] = match;
+    const result: Partial<Connection> = {};
+
+    if (host) result.host = host;
+    if (port) result.port = port;
+    if (database) result.database = database;
+    if (username) result.username = decodeURIComponent(username);
+    if (password) result.password = decodeURIComponent(password);
+
+    // Parse SSL parameters
+    if (params) {
+      const urlParams = new URLSearchParams(params);
+      if (urlParams.has('sslmode')) {
+        result.use_ssl = urlParams.get('sslmode') !== 'disable';
+        const mode = urlParams.get('sslmode');
+        if (mode === 'disable' || mode === 'require' || mode === 'verify-ca' || mode === 'verify-full') {
+          result.ssl_mode = mode;
+        }
+      }
+    }
+
+    return result;
+  };
+
+  // MySQL URI parser: mysql://user:password@host:port/database?params
+  const parseMySQLUri = (uri: string): Partial<Connection> => {
+    const match = uri.match(/^mysql:\/\/(?:([^:]+)(?::([^@]+))?@)?([^:/]+)(?::(\d+))?(?:\/([^?]+))?(?:\?(.*))?$/);
+    if (!match) throw new Error('Invalid MySQL URI format');
+
+    const [, username, password, host, port, database, params] = match;
+    const result: Partial<Connection> = {};
+
+    if (host) result.host = host;
+    if (port) result.port = port;
+    if (database) result.database = database;
+    if (username) result.username = decodeURIComponent(username);
+    if (password) result.password = decodeURIComponent(password);
+
+    // Parse SSL parameters
+    if (params) {
+      const urlParams = new URLSearchParams(params);
+      if (urlParams.has('useSSL')) {
+        result.use_ssl = urlParams.get('useSSL') === 'true';
+      }
+    }
+
+    return result;
+  };
+
+  // ClickHouse URI parser: clickhouse://user:password@host:port/database?params
+  const parseClickHouseUri = (uri: string): Partial<Connection> => {
+    const match = uri.match(/^clickhouse:\/\/(?:([^:]+)(?::([^@]+))?@)?([^:/]+)(?::(\d+))?(?:\/([^?]+))?(?:\?(.*))?$/);
+    if (!match) throw new Error('Invalid ClickHouse URI format');
+
+    const [, username, password, host, port, database, params] = match;
+    const result: Partial<Connection> = {};
+
+    if (host) result.host = host;
+    if (port) result.port = port;
+    if (database) result.database = database;
+    if (username) result.username = decodeURIComponent(username);
+    if (password) result.password = decodeURIComponent(password);
+
+    // Parse SSL parameters
+    if (params) {
+      const urlParams = new URLSearchParams(params);
+      if (urlParams.has('secure')) {
+        result.use_ssl = urlParams.get('secure') === 'true' || urlParams.get('secure') === '1';
+      }
+    }
+
+    return result;
+  };
+
+  // MongoDB URI parser (existing logic refactored)
+  const parseMongoDBUri = (uri: string): Partial<Connection> => {
+    const srvFormat = uri.startsWith('mongodb+srv://');
+    
+    // Extract the protocol and the rest
+    const protocolMatch = uri.match(/^(mongodb(?:\+srv)?:\/\/)(.*)/);
+    if (!protocolMatch) {
+      throw new Error('Invalid MongoDB URI format: Missing protocol');
+    }
+    
+    const [, , remainder] = protocolMatch;
+    
+    // Check if credentials are provided (look for @ after the protocol)
+    const hasCredentials = remainder.includes('@');
+    let username = '';
+    let password = '';
+    let hostPart = remainder;
+    
+    if (hasCredentials) {
+      // Find the last @ which separates credentials from host
+      const lastAtIndex = remainder.lastIndexOf('@');
+      const credentialsPart = remainder.substring(0, lastAtIndex);
+      hostPart = remainder.substring(lastAtIndex + 1);
+      
+      // Find the first : which separates username from password
+      const firstColonIndex = credentialsPart.indexOf(':');
+      if (firstColonIndex !== -1) {
+        username = credentialsPart.substring(0, firstColonIndex);
+        password = credentialsPart.substring(firstColonIndex + 1);
+        
+        // Handle URL encoded characters in username and password
+        try {
+          username = decodeURIComponent(username);
+          password = decodeURIComponent(password);
+        } catch (e) {
+          console.log("Could not decode URI components:", e);
+        }
+      } else {
+        username = credentialsPart;
+        try {
+          username = decodeURIComponent(username);
+        } catch (e) {
+          console.log("Could not decode username:", e);
+        }
+      }
+    }
+    
+    // Parse host, port and database
+    let host = '';
+    let port = srvFormat ? '27017' : ''; // Default for SRV format
+    let database = 'test'; // Default database name
+    let authDatabase = 'admin'; // Default auth database
+    
+    // Check if there's a / after the host[:port] part
+    const pathIndex = hostPart.indexOf('/');
+    if (pathIndex !== -1) {
+      const hostPortPart = hostPart.substring(0, pathIndex);
+      const pathPart = hostPart.substring(pathIndex + 1);
+      
+      // Extract database name and query parameters
+      const queryIndex = pathPart.indexOf('?');
+      if (queryIndex !== -1) {
+        database = pathPart.substring(0, queryIndex);
+        const queryParams = new URLSearchParams(pathPart.substring(queryIndex + 1));
+        if (queryParams.has('authSource')) {
+          authDatabase = queryParams.get('authSource') || 'admin';
+        }
+      } else {
+        database = pathPart;
+      }
+      
+      // Parse host and port
+      const portIndex = hostPortPart.indexOf(':');
+      if (portIndex !== -1) {
+        host = hostPortPart.substring(0, portIndex);
+        port = hostPortPart.substring(portIndex + 1);
+      } else {
+        host = hostPortPart;
+      }
+    } else {
+      // No database specified in the URI
+      const portIndex = hostPart.indexOf(':');
+      if (portIndex !== -1) {
+        host = hostPart.substring(0, portIndex);
+        port = hostPart.substring(portIndex + 1);
+      } else {
+        host = hostPart;
+      }
+    }
+    
+    if (!host) throw new Error('Could not extract host from MongoDB URI');
+    
+    return {
+      host: host,
+      port: port || (srvFormat ? '27017' : formData.port),
+      database: database || 'test',
+      auth_database: authDatabase,
+      username: username || formData.username,
+      password: password || formData.password
+    };
+  };
+
+  // Get connection URI placeholder and label based on database type
+  const getUriConfig = (dbType: string) => {
+    switch (dbType) {
+      case 'postgresql':
+        return {
+          label: 'PostgreSQL 连接 URI',
+          placeholder: 'postgresql://username:password@host:port/database',
+          description: '粘贴 PostgreSQL 连接串以自动填充下方字段'
+        };
+      case 'yugabytedb':
+        return {
+          label: 'YugabyteDB 连接 URI',
+          placeholder: 'postgresql://username:password@host:port/database',
+          description: '粘贴 YugabyteDB 连接串以自动填充下方字段'
+        };
+      case 'timescaledb':
+        return {
+          label: 'TimescaleDB 连接 URI',
+          placeholder: 'postgresql://username:password@host:port/database',
+          description: '粘贴 TimescaleDB 连接串以自动填充下方字段'
+        };
+      case 'mysql':
+        return {
+          label: 'MySQL 连接 URI',
+          placeholder: 'mysql://username:password@host:port/database',
+          description: '粘贴 MySQL 连接串以自动填充下方字段'
+        };
+      case 'starrocks':
+        return {
+          label: 'StarRocks 连接 URI',
+          placeholder: 'mysql://username:password@host:port/database',
+          description: '粘贴 StarRocks 连接串以自动填充下方字段'
+        };
+      case 'clickhouse':
+        return {
+          label: 'ClickHouse 连接 URI',
+          placeholder: 'clickhouse://username:password@host:port/database',
+          description: '粘贴 ClickHouse 连接串以自动填充下方字段'
+        };
+      case 'mongodb':
+        return {
+          label: 'MongoDB 连接 URI',
+          placeholder: 'mongodb://username:password@host:port/database or mongodb+srv://username:password@host/database',
+          description: '粘贴 MongoDB 连接串以自动填充下方字段'
+        };
+      default:
+        return null;
+    }
+  };
+
+
+  // Update connection URI when form data changes
+  useEffect(() => {
+    if (formData.host && formData.database) {
+      setConnectionUri(buildConnectionUri(formData));
+    }
+  }, [formData]);
+
+  // Get whitelist addresses from environment variable
+  // These are the server addresses of the cluster where the backend is deployed, which establish the database connections
+  const getWhitelistAddresses = (): string[] => {
+    const addresses = import.meta.env.VITE_YANFA_WHITELIST_ADDRESSES;
+    if (!addresses) return [];
+    return addresses.split(',').map((addr: string) => addr.trim()).filter((addr: string) => addr);
+  };
+
+  // Copy address to clipboard
+  const copyToClipboard = async (address: string) => {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(address);
+      // Reset the checkmark after 2 seconds
+      setTimeout(() => setCopiedAddress(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  };
+
+  return (
+    <>
+
+      {/* Show file upload instructions for CSV/Excel */}
+      {(formData.type === 'spreadsheet') && (
+        <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+          <p className="text-blue-800">
+            {zhCN.connection.spreadsheetNext}
+          </p>
+        </div>
+      )}
+
+      {/* Universal Connection URI Field - Show for supported database types */}
+      {getUriConfig(formData.type) && formData.type !== 'spreadsheet' && (
+        <div className="mb-6">
+          <label className="block font-bold mb-2 text-lg">{getUriConfig(formData.type)!.label}</label>
+          <p className="text-gray-600 text-sm mb-2">{getUriConfig(formData.type)!.description}</p>
+          <input
+            type="text"
+            name="connection_uri"
+            ref={formData.type === 'mongodb' ? mongoUriInputRef : undefined}
+            className="neo-input w-full"
+            placeholder={getUriConfig(formData.type)!.placeholder}
+            value={connectionUri}
+            onChange={(e) => {
+              const uri = e.target.value;
+              // Update local state to allow free editing
+              setConnectionUri(uri);
+              // Save the URI value through the callback for MongoDB compatibility
+              if (formData.type === 'mongodb' && onMongoUriChange) {
+                onMongoUriChange(uri);
+              }
+              // Parse the URI based on the selected database type
+              parseConnectionUri(uri, formData.type);
+            }}
+          />
+          <p className="text-gray-500 text-xs mt-3">
+            {zhCN.connection.uriHint}
+            {formData.type === 'mongodb' && ' 支持标准与 Atlas SRV 格式。'}
+            {formData.type === 'postgresql' && ' 支持 sslmode 参数（例如 ?sslmode=require）。'}
+            {formData.type === 'timescaledb' && ' 支持 sslmode 参数（例如 ?sslmode=require）。'}
+            {formData.type === 'yugabytedb' && ' 支持 sslmode 参数（例如 ?sslmode=require）。'}
+            {formData.type === 'mysql' && ' 支持 useSSL 参数（例如 ?useSSL=true）。'}
+            {formData.type === 'starrocks' && ' 支持 useSSL 参数（例如 ?useSSL=true）。'}
+            {formData.type === 'clickhouse' && ' 支持 secure 参数（例如 ?secure=true）。'}
+          </p>
+        </div>
+      )}
+
+      {/* Divider between Connection URI and Manual Fields */}
+      {getUriConfig(formData.type) && formData.type !== 'spreadsheet' && (
+        <div className="flex items-center my-6">
+          <div className="flex-1 border-t border-gray-300"></div>
+          <span className="px-4 text-sm font-medium text-gray-500">{zhCN.common.or}</span>
+          <div className="flex-1 border-t border-gray-300"></div>
+        </div>
+      )}
+
+      {formData.type !== 'spreadsheet' && (
+        <>
+          <div className="mb-6">
+            <label className="block font-bold mb-2 text-lg">{zhCN.connection.host}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.hostHint}</p>
+        <input
+          type="text"
+          name="host"
+          value={formData.host}
+          onChange={handleChange}
+          onBlur={handleFieldBlur}
+          className={`neo-input w-full ${errors.host && touched.host ? 'border-neo-error' : ''}`}
+          placeholder={zhCN.connection.hostPlaceholder}
+          required
+        />
+        {errors.host && touched.host && (
+          <div className="flex items-center gap-1 mt-1 text-neo-error text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errors.host}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <label className="block font-bold mb-2 text-lg">{zhCN.connection.port}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.portHint}</p>
+        <input
+          type="text"
+          name="port"
+          value={formData.port}
+          onChange={handleChange}
+          onBlur={handleFieldBlur}
+          className={`neo-input w-full ${errors.port && touched.port ? 'border-neo-error' : ''}`}
+          placeholder={zhCN.connection.portPlaceholder}
+        />
+        {errors.port && touched.port && (
+          <div className="flex items-center gap-1 mt-1 text-neo-error text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errors.port}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <label className="block font-bold mb-2 text-lg">{zhCN.connection.database}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.databaseHint}</p>
+        <input
+          type="text"
+          name="database"
+          value={formData.database}
+          onChange={handleChange}
+          onBlur={handleFieldBlur}
+          className={`neo-input w-full ${errors.database && touched.database ? 'border-neo-error' : ''}`}
+          placeholder={zhCN.connection.databasePlaceholder}
+          required
+        />
+        {errors.database && touched.database && (
+          <div className="flex items-center gap-1 mt-1 text-neo-error text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errors.database}</span>
+          </div>
+        )}
+      </div>
+
+      {/* MongoDB Authentication Database Field - Only show when MongoDB is selected */}
+      {formData.type === 'mongodb' && (
+        <div className="mb-6">
+          <label className="block font-bold mb-2 text-lg">{zhCN.connection.authDatabase}</label>
+          <p className="text-gray-600 text-sm mb-2">{zhCN.connection.authDatabaseHint}</p>
+          <input
+            type="text"
+            name="auth_database"
+            value={formData.auth_database || 'admin'}
+            onChange={handleChange}
+            onBlur={handleFieldBlur}
+            className={`neo-input w-full ${errors.auth_database && touched.auth_database ? 'border-neo-error' : ''}`}
+            placeholder="例如 admin"
+          />
+          {errors.auth_database && touched.auth_database && (
+            <div className="flex items-center gap-1 mt-1 text-neo-error text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>{errors.auth_database}</span>
+            </div>
+          )}
+          <p className="text-gray-500 text-xs mt-2">
+            这是存储用户凭证的数据库。MongoDB Atlas 通常为 admin。
+          </p>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <label className="block font-bold mb-2 text-lg">{zhCN.connection.username}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.usernameHint}</p>
+        <input
+          type="text"
+          name="username"
+          value={formData.username}
+          onChange={handleChange}
+          onBlur={handleFieldBlur}
+          className={`neo-input w-full ${errors.username && touched.username ? 'border-neo-error' : ''}`}
+          placeholder="例如 db_user、assistant"
+          required
+        />
+        <p className="text-gray-500 text-sm mt-3">请仅赋予所需权限，例如只读、读写或有限访问。</p>
+        {errors.username && touched.username && (
+          <div className="flex items-center gap-1 mt-1 text-neo-error text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errors.username}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <label className="block font-bold mb-2 text-lg">{zhCN.connection.password}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.passwordHint}</p>
+        <input
+          type="password"
+          name="password"
+          value={formData.password || ''}
+          onChange={handleChange}
+          className="neo-input w-full"
+          placeholder={zhCN.connection.passwordPlaceholder}
+        />
+        <p className="text-gray-500 text-sm mt-3">若数据库无密码可留空，但建议为用户设置密码。</p>
+      </div>
+
+      {/* Divider line */}
+      <div className="border-t border-gray-200 my-6"></div>
+
+      {/* SSL Toggle */}
+      <div className="mb-6">
+        <label className="block font-bold mb-2 text-lg">{zhCN.connection.sslTitle}</label>
+        <p className="text-gray-600 text-sm mb-2">{zhCN.connection.sslHint}</p>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="use_ssl"
+            name="use_ssl"
+            checked={formData.use_ssl || false}
+            onChange={(e) => {
+              const useSSL = e.target.checked;
+              const mockEvent = {
+                target: { 
+                  name: 'use_ssl', 
+                  value: useSSL 
+                }
+              } as unknown as React.ChangeEvent<HTMLInputElement>;
+              handleChange(mockEvent);
+              
+              // Also update ssl_mode if turning off SSL
+              if (!useSSL) {
+                const sslModeEvent = {
+                  target: { 
+                    name: 'ssl_mode', 
+                    value: 'disable' 
+                  }
+                } as unknown as React.ChangeEvent<HTMLSelectElement>;
+                handleChange(sslModeEvent);
+              }
+            }}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label htmlFor="use_ssl" className="ml-2 block text-sm font-medium text-gray-700">
+            {zhCN.connection.useSsl}
+          </label>
+        </div>
+      </div>
+
+
+      {/* SSL Mode Selector - Only show when SSL is enabled */}
+      {formData.use_ssl && (
+        <div className="mb-6">
+          <label className="block font-medium mb-2">{zhCN.connection.sslMode}</label>
+          <div className="relative">
+            <select
+              name="ssl_mode"
+              value={formData.ssl_mode || 'disable'}
+              onChange={handleChange}
+              className="neo-input w-full appearance-none pr-12"
+            >
+              <option value="disable">{zhCN.connection.sslDisable}</option>
+              <option value="require">{zhCN.connection.sslRequire}</option>
+              <option value="verify-ca">{zhCN.connection.sslVerifyCa}</option>
+              <option value="verify-full">{zhCN.connection.sslVerifyFull}</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+              <ChevronDown className="w-5 h-5 text-gray-400" />
+            </div>
+          </div>
+          <p className="text-gray-500 text-sm mt-3">
+            {formData.ssl_mode === 'disable' && '不使用 SSL。'}
+            {formData.ssl_mode === 'require' && '必须加密连接，但不验证证书。'}
+            {formData.ssl_mode === 'verify-ca' && '必须加密并验证服务端证书。'}
+            {formData.ssl_mode === 'verify-full' && '必须加密并验证服务端证书与主机名。'}
+          </p>
+        </div>
+      )}
+
+      {/* SSL Certificate Fields - Only show when SSL is enabled and mode requires verification */}
+      {formData.use_ssl && (formData.ssl_mode === 'verify-ca' || formData.ssl_mode === 'verify-full') && (
+        <div className="mb-6 p-4 border-dashed border-2 border-gray-200 rounded-md bg-gray-50">
+          <h4 className="font-bold mb-3 text-md">{zhCN.connection.sslTitle}</h4>
+          
+          <div className="mb-4">
+            <label className="block font-medium mb-1 text-sm">{zhCN.connection.sslCertUrl}</label>
+            <p className="text-gray-600 text-xs mb-1">客户端证书文件 URL（.pem 或 .crt）</p>
+            <input
+              type="text"
+              name="ssl_cert_url"
+              value={formData.ssl_cert_url || ''}
+              onChange={handleChange}
+              onBlur={handleFieldBlur}
+              className={`neo-input w-full ${errors.ssl_cert_url && touched.ssl_cert_url ? 'border-red-500' : ''}`}
+              placeholder="https://example.com/cert.pem"
+            />
+            {errors.ssl_cert_url && touched.ssl_cert_url && (
+              <p className="text-red-500 text-xs mt-1">{errors.ssl_cert_url}</p>
+            )}
+          </div>
+          
+          <div className="mb-4">
+            <label className="block font-medium mb-1 text-sm">{zhCN.connection.sslKeyUrl}</label>
+            <p className="text-gray-600 text-xs mb-1">私钥文件 URL（.pem 或 .key）</p>
+            <input
+              type="text"
+              name="ssl_key_url"
+              value={formData.ssl_key_url || ''}
+              onChange={handleChange}
+              onBlur={handleFieldBlur}
+              className={`neo-input w-full ${errors.ssl_key_url && touched.ssl_key_url ? 'border-red-500' : ''}`}
+              placeholder="https://example.com/key.pem"
+            />
+            {errors.ssl_key_url && touched.ssl_key_url && (
+              <p className="text-red-500 text-xs mt-1">{errors.ssl_key_url}</p>
+            )}
+          </div>
+          
+          <div className="mb-2">
+            <label className="block font-medium mb-1 text-sm">{zhCN.connection.sslRootUrl}</label>
+            <p className="text-gray-600 text-xs mb-1">CA 证书文件 URL（.pem 或 .crt）</p>
+            <input
+              type="text"
+              name="ssl_root_cert_url"
+              value={formData.ssl_root_cert_url || ''}
+              onChange={handleChange}
+              onBlur={handleFieldBlur}
+              className={`neo-input w-full ${errors.ssl_root_cert_url && touched.ssl_root_cert_url ? 'border-red-500' : ''}`}
+              placeholder="https://example.com/ca.pem"
+            />
+            {errors.ssl_root_cert_url && touched.ssl_root_cert_url && (
+              <p className="text-red-500 text-xs mt-1">{errors.ssl_root_cert_url}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Divider line */}
+      <div className="border-t border-gray-200 my-6"></div>
+
+      {/* Whitelist Server Addresses Section */}
+      {getWhitelistAddresses().length > 0 && (
+        <div className="mb-6 p-4 border-2 border-blue-200 rounded-lg bg-blue-50">
+          <h4 className="font-bold mb-2 text-lg text-gray-800">{zhCN.connection.whitelistTitle}</h4>
+          <p className="text-gray-600 text-sm mb-4">
+            {zhCN.connection.whitelistBody}
+          </p>
+          
+          <div className="space-y-2">
+            {getWhitelistAddresses().map((address) => (
+              <div key={address} className="flex items-center gap-2 p-3 py-2 bg-white border border-gray-200 rounded-md">
+                <code className="flex-1 text-sm font-mono text-gray-700 break-all">{address}</code>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(address)}
+                  className="flex-shrink-0 p-2 hover:bg-gray-100 rounded transition-colors"
+                  title={zhCN.connection.copyAddress}
+                  aria-label={`${zhCN.connection.copyAddress} ${address}`}
+                >
+                  {copiedAddress === address ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-gray-500 hover:text-gray-700" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+        </>
+      )}
+    </>
+  );
+};
+
+export default BasicConnectionTab; 

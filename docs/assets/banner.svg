@@ -1,0 +1,30 @@
+<svg width="1200" height="400" viewBox="0 0 1200 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="YanfaChatBI — 用自然语言问清楚你的数据">
+  <rect width="1200" height="400" fill="#FCF7E5"/>
+  <rect x="24" y="24" width="1152" height="352" fill="#111111"/>
+  <rect x="12" y="12" width="1152" height="352" fill="#FCF7E5" stroke="#111111" stroke-width="8"/>
+
+  <rect x="64" y="56" width="330" height="46" fill="#FFD700" stroke="#111111" stroke-width="5"/>
+  <text x="82" y="87" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="20" font-weight="700" fill="#111111">OPEN SOURCE · AI 问数平台</text>
+
+  <text x="62" y="208" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="88" font-weight="800" letter-spacing="-2" fill="#111111">YanfaChatBI</text>
+  <rect x="66" y="224" width="392" height="14" fill="#7BC96F"/>
+  <text x="66" y="284" font-family="'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif" font-size="30" font-weight="700" fill="#111111">用自然语言，问清楚你的数据</text>
+  <text x="66" y="330" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="19" font-weight="600" fill="#4B4B4B">PostgreSQL · MySQL · MongoDB · ClickHouse · 表格与视图</text>
+
+  <g font-family="'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif">
+    <rect x="790" y="58" width="348" height="86" fill="#111111"/>
+    <rect x="780" y="48" width="348" height="86" fill="#FFFFFF" stroke="#111111" stroke-width="5"/>
+    <text x="804" y="84" font-size="18" font-weight="800" fill="#111111">01  连接数据源</text>
+    <text x="804" y="112" font-size="15" fill="#4B4B4B">数据库、CSV / Excel、Google Sheets</text>
+
+    <rect x="790" y="164" width="348" height="86" fill="#111111"/>
+    <rect x="780" y="154" width="348" height="86" fill="#FFFFFF" stroke="#111111" stroke-width="5"/>
+    <text x="804" y="190" font-size="18" font-weight="800" fill="#111111">02  对话式问数</text>
+    <text x="804" y="218" font-size="15" fill="#4B4B4B">生成 SQL、执行、解释，全程可追踪</text>
+
+    <rect x="790" y="270" width="348" height="86" fill="#111111"/>
+    <rect x="780" y="260" width="348" height="86" fill="#FFFFFF" stroke="#111111" stroke-width="5"/>
+    <text x="804" y="296" font-size="18" font-weight="800" fill="#111111">03  可视化与看板</text>
+    <text x="804" y="324" font-size="15" fill="#4B4B4B">图表、仪表盘、自动解读结果</text>
+  </g>
+</svg>

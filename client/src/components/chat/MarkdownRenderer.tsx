@@ -1,0 +1,181 @@
+import React, { useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import 'highlight.js/styles/github.css';
+import './MarkdownRenderer.css';
+import { highlightSearchText } from '../../utils/highlightSearch';
+
+interface MarkdownRendererProps {
+  markdown: string;
+  className?: string;
+  searchQuery?: string;
+}
+
+/**
+ * Preprocess markdown to fix common LLM output issues:
+ * - Normalize line endings
+ * - Ensure blank line before list starts (required by strict parsers)
+ * - Strip trailing JSON code blocks from failed tool-call attempts
+ */
+function preprocessMarkdown(text: string): string {
+  let result = text;
+
+  // Normalize line endings
+  result = result.replace(/\r\n/g, '\n');
+
+  // Strip trailing JSON code fences that are failed tool-call attempts
+  // (LLM sometimes emits the generate_final_response call as a code block)
+  result = result.replace(/\n*```json\s*\n\s*\{[\s\S]*?"assistantMessage"[\s\S]*?\}\s*\n```\s*$/, '');
+
+  // Ensure a blank line before list starts (paragraph followed directly by list)
+  // This helps parsers that require a blank line between paragraph text and lists
+  result = result.replace(/([^\n])\n([ \t]*[*+-] )/g, '$1\n\n$2');
+  result = result.replace(/([^\n])\n([ \t]*\d+\. )/g, '$1\n\n$2');
+
+  return result;
+}
+
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ markdown, className = '', searchQuery }) => {
+  // Apply a safeguard to ensure markdown is always a string
+  const safeMarkdown = useMemo(
+    () => preprocessMarkdown(typeof markdown === 'string' ? markdown : ''),
+    [markdown]
+  );
+
+  // Recursive function to process children for search highlighting
+  const processChildren = (child: React.ReactNode): React.ReactNode => {
+    if (typeof child === 'string' && searchQuery) {
+      return highlightSearchText(child, searchQuery);
+    }
+    if (Array.isArray(child)) {
+      return child.map((c, i) => <React.Fragment key={i}>{processChildren(c)}</React.Fragment>);
+    }
+    if (React.isValidElement<{ children?: React.ReactNode }>(child) && 'children' in child.props) {
+      return React.cloneElement(child, {
+        children: processChildren(child.props.children)
+      });
+    }
+    return child;
+  };
+
+  // Define the components with proper typing
+  const components: Partial<Components> = {
+    a: props => {
+      const { children, ...rest } = props;
+      return (
+        <a 
+          {...rest} 
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
+          {children}
+        </a>
+      );
+    },
+    table: props => {
+      const { children, ...rest } = props;
+      return (
+        <div className="overflow-x-auto">
+          <table className="neo-border" {...rest}>
+            {children}
+          </table>
+        </div>
+      );
+    },
+    img: props => {
+      return (
+        <img 
+          {...props} 
+          className="neo-border my-2" 
+          alt={props.alt || '图片'} 
+        />
+      );
+    },
+    blockquote: props => {
+      const { children, ...rest } = props;
+      return (
+        <blockquote className="neo-border" {...rest}>
+          {children}
+        </blockquote>
+      );
+    },
+    pre: props => {
+      const { children, ...rest } = props;
+      return (
+        <pre className="neo-border" {...rest}>
+          {children}
+        </pre>
+      );
+    },
+    ul: props => {
+      const { children, ...rest } = props;
+      return (
+        <ul className="list-disc ml-6" {...rest}>
+          {children}
+        </ul>
+      );
+    },
+    ol: props => {
+      const { children, ...rest } = props;
+      return (
+        <ol className="list-decimal ml-6" {...rest}>
+          {children}
+        </ol>
+      );
+    },
+    p: props => {
+      const { children, ...rest } = props;
+      return <p {...rest}>{processChildren(children)}</p>;
+    },
+    // Handle list items
+    li: props => {
+      const { children, ...rest } = props;
+      return <li {...rest}>{processChildren(children)}</li>;
+    },
+    // Handle inline code
+    code: props => {
+      const { children, className, ...rest } = props;
+      const match = /language-(\w+)/.exec(className || '');
+      const isInline = !match;
+      
+      if (isInline && searchQuery && typeof children === 'string') {
+        return (
+          <code className={className} {...rest}>
+            {highlightSearchText(children, searchQuery)}
+          </code>
+        );
+      }
+      
+      return !isInline ? (
+        <div className="code-block-wrapper neo-border">
+          <div className="code-language-indicator">{match ? match[1] : 'code'}</div>
+          <code
+            className={className}
+            {...rest}
+          >
+            {children}
+          </code>
+        </div>
+      ) : (
+        <code className={className} {...rest}>
+          {children}
+        </code>
+      );
+    }
+  };
+  
+  return (
+    <div className={`markdown-renderer ${className}`}>
+      <ReactMarkdown
+        skipHtml={false}
+        remarkPlugins={[remarkGfm]}
+        components={components}
+      >
+        {safeMarkdown}
+      </ReactMarkdown>
+    </div>
+  );
+};
+
+export default MarkdownRenderer;
