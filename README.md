@@ -260,3 +260,5 @@ cd client && npm run dev
 ## 📄 License
 
 本项目基于 [MIT License](LICENSE) 开源。
+
+本项目基于 [NeoBase](https://github.com/bhaskarblur/neobase-ai-dba) 二次开发。
