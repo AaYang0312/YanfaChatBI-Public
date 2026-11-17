@@ -121,9 +121,16 @@ CSV / Excel 上传后写入独立的 PostgreSQL，不进入业务数据源。
 | `QDRANT_PORT` | `6334` | gRPC 端口 |
 | `QDRANT_API_KEY` | 空 | Qdrant Cloud 必填 |
 | `QDRANT_USE_TLS` | `false` | Qdrant Cloud 设为 `true` |
+| `QDRANT_SCHEMA_BM25_ENABLED` | `false` | 启用独立 BM25 结构检索，要求 Qdrant 1.20+；历史消息检索不变 |
 | `EMBEDDING_SCHEMA_COLLECTION` | `neobase_schema` | 表结构 collection；存量标识，通常不改 |
 | `EMBEDDING_MESSAGE_COLLECTION` | `neobase_messages` | 历史消息 collection |
 | `EMBEDDING_OBJECT_SCHEMA_COLLECTION` | `<schema>_objects_v2` | 视图对象 collection |
+
+开启后，结构正文用多语言分词，表名用代码分词。Qdrant 为已有 payload 建立 BM25 文本索引，向量与 RRF 保持不变。
+
+共享集合切换要暂停问数流量并停止其他索引写入者。用一个实例开启开关，等旧版表结构集合初始化完成；对已启用表/视图对象检索的聊天执行结构刷新，确认对象索引为 `ready`。在恢复流量前核对两个结构集合的 `content`、`table_name` 均报告 `scoring.type=bm25`，再让所有实例使用相同开关。应用启动本身不代表索引已经就绪。
+
+回滚检索方式时同样协调流量和写入者，将开关置回 `false`，等初始化和对象索引刷新把两处文本索引恢复为原有分词，再恢复流量。这个操作保留 Qdrant 1.20+ 服务版本；服务器降级使用独立的备份与恢复流程。
 
 > 嵌入模型维度必须与 collection 一致。更换模型后需要重建 collection 并重新索引，否则检索会失败或返回空结果。
 

@@ -25,7 +25,7 @@ func NewQdrantObjectStore(base *QdrantClient, name string) (*QdrantObjectStore, 
 		return nil, err
 	}
 	q := &QdrantClient{conn: base.conn, pointsClient: base.pointsClient, collectionsClient: base.collectionsClient,
-		qdrantClient: base.qdrantClient, collectionNames: base.collectionNames, objectCollection: name}
+		qdrantClient: base.qdrantClient, collectionNames: base.collectionNames, objectCollection: name, schemaBM25: base.schemaBM25}
 	return &QdrantObjectStore{q: q, collection: name}, nil
 }
 func (s *QdrantObjectStore) Ensure(ctx context.Context, dimension int) error {
@@ -50,6 +50,11 @@ func (s *QdrantObjectStore) Ensure(ctx context.Context, dimension int) error {
 	}
 	if err := s.q.validateCollection(ctx, s.collection, dimension); err != nil {
 		return err
+	}
+	if s.q.schemaBM25 {
+		if err := s.q.validateBM25Indexes(ctx, s.collection); err != nil {
+			return err
+		}
 	}
 	return s.q.validatePayloadIndexes(ctx, s.collection, expected)
 }

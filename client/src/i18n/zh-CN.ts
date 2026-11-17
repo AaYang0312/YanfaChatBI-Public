@@ -1,4 +1,4 @@
-export const productName = '元发问数平台'
+export const productName = import.meta.env.VITE_GAME_DEMO === 'true' ? 'GameShelf' : '元发问数平台'
 
 export const TECHNICAL_DETAILS_LABEL = '技术详情'
 export const UNKNOWN_ERROR_SUMMARY = '服务暂时不可用，请稍后重试。'
@@ -848,7 +848,8 @@ const catalog = {
       503: '服务暂时不可用，请稍后重试。',
     } as Record<number, string>,
     messages: {
-      'Invalid credentials, User does not exist.': '账号不存在。',
+      'invalid password': '账号或密码错误，请重试。',
+      'Invalid credentials, User does not exist.': '账号或密码错误，请重试。',
       'Invalid credentials. Please try again.': '账号或密码错误，请重试。',
       'User with this email already exists': '该邮箱已注册。',
       'User with this username already exists': '该用户名已注册。',
@@ -1180,7 +1181,11 @@ export function formatServiceError(error?: unknown, httpStatus?: number): Servic
   }
 
   if (mappedMessage) {
-    return withDetail(mappedMessage, detail, code)
+    // Do not reveal whether an account exists, even in technical details.
+    const credentialFailure = message === 'invalid password'
+      || message === 'Invalid credentials, User does not exist.'
+      || message === 'Invalid credentials. Please try again.'
+    return withDetail(mappedMessage, credentialFailure ? undefined : detail, code)
   }
 
   if (status && zhCN.errors.http[status]) {

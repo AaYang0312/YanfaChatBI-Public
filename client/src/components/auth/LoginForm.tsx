@@ -196,6 +196,7 @@ export default function LoginForm({ onLogin, startupError }: LoginFormProps) {
             )}
           </button>
         </form>
+        {import.meta.env.VITE_GAME_DEMO === 'true' && <p className="mt-5 text-center text-xs text-gray-600">SDSC 6021 · 全部经营数据为合成数据 · <a href="/demo-attribution.txt" target="_blank" rel="noreferrer" className="underline">NeoBase 来源与许可</a></p>}
       </div>
     </div>
   );

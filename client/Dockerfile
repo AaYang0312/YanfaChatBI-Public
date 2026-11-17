@@ -16,11 +16,13 @@ COPY . .
 ARG VITE_FRONTEND_BASE_URL
 ARG VITE_API_URL
 ARG VITE_ENVIRONMENT
+ARG VITE_GAME_DEMO=false
 
 # Set environment variables for the build
 ENV VITE_FRONTEND_BASE_URL=$VITE_FRONTEND_BASE_URL
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_ENVIRONMENT=$VITE_ENVIRONMENT
+ENV VITE_GAME_DEMO=$VITE_GAME_DEMO
 
 # Build the application with environment variables
 RUN npm run build
@@ -40,4 +42,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 5173
 
 # Start the server
-CMD ["serve", "-s", "dist", "-l", "5173"] 
+CMD ["serve", "-s", "dist", "-l", "5173"]

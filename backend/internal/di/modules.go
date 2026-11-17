@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"time"
 	"yanfachatbi/config"
 	"yanfachatbi/internal/apis/handlers"
 	"yanfachatbi/internal/constants"
@@ -19,9 +22,6 @@ import (
 	"yanfachatbi/pkg/redis"
 	"yanfachatbi/pkg/sourcegate"
 	"yanfachatbi/pkg/vectordb"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/dig"
@@ -774,6 +774,7 @@ func initializeVectorization(env config.Environment, provider embedding.Provider
 		}
 		client, err := vectordb.NewQdrantClient(vectordb.QdrantConfig{
 			Host: env.QdrantHost, Port: port, APIKey: env.QdrantAPIKey, UseTLS: env.QdrantUseTLS,
+			SchemaBM25:       env.QdrantSchemaBM25,
 			SchemaCollection: names.Schema, MessageCollection: names.Messages,
 		})
 		if err != nil {

@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import './gameDemo.css'
 import ChartRenderer from '../ChartRenderer'
 import { zhCN } from '../../i18n/zh-CN'
 import { reportChartModels } from './assistantChartModel'
@@ -97,6 +98,7 @@ export default function AssistantResultCard({
 }: AssistantResultCardProps) {
   const metrics = visibleMetrics(report)
   const isQuantityPilot = report.contract_version === ERP_QUANTITY_PILOT_CONTRACT
+  const isGameDemo = report.contract_version === 'game-shop-demo-v1'
   const charts = useMemo(() => reportChartModels(report), [report])
   const otherBasis: Basis = report.basis === 'payment' ? 'outstock' : 'payment'
   const loading = pendingBasis != null
@@ -112,9 +114,10 @@ export default function AssistantResultCard({
   }
 
   return (
-    <section className="assistant-result-card" data-run-id={report.report_id} aria-label={copy.card.title}>
+    <section className={`assistant-result-card${isGameDemo ? ' game-demo-report' : ''}`} data-run-id={report.report_id} aria-label={copy.card.title}>
       <header>
         <h3>{copy.card.title}</h3>
+        {isGameDemo && <p role="note">合成游戏网店演示 · HKD · 毛利为销售额减商品采购成本，未扣运费、平台费、税费和退款。</p>}
         <p>{copy.outcome[report.outcome]}</p>
       </header>
       <dl>
@@ -183,7 +186,7 @@ export default function AssistantResultCard({
           {copy.card.missingTrend} {point.business_date ?? point.dimension}
         </p>
       ))}
-      {!isQuantityPilot && onSwitchBasis && sourceRequest && (
+      {!isQuantityPilot && !isGameDemo && onSwitchBasis && sourceRequest && (
         <button type="button" onClick={switchBasis} disabled={loading}>
           {copy.card.switchBasis}
         </button>

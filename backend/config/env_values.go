@@ -87,10 +87,11 @@ type Environment struct {
 	GoogleRedirectURL  string
 
 	// Qdrant Vector DB configs
-	QdrantHost   string
-	QdrantPort   string
-	QdrantAPIKey string
-	QdrantUseTLS bool
+	QdrantHost       string
+	QdrantPort       string
+	QdrantAPIKey     string
+	QdrantUseTLS     bool
+	QdrantSchemaBM25 bool
 
 	// Embedding configs
 	EmbeddingProvider               string // "openai" or "gemini" — auto-detected if empty
@@ -192,6 +193,7 @@ func LoadEnv() error {
 	Env.QdrantPort = getEnvWithDefault("QDRANT_PORT", "6334")
 	Env.QdrantAPIKey = getEnvWithDefault("QDRANT_API_KEY", "")
 	Env.QdrantUseTLS = getEnvWithDefault("QDRANT_USE_TLS", "false") == "true"
+	Env.QdrantSchemaBM25 = getEnvWithDefault("QDRANT_SCHEMA_BM25_ENABLED", "false") == "true"
 
 	// Embedding configs — auto-detect provider from available API keys if not set
 	Env.QueryObjectsEnabled = getEnvWithDefault("QUERY_OBJECTS_ENABLED", "false") == "true"

@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
-	"yanfachatbi/internal/constants"
 	"sync"
 	"time"
+	"yanfachatbi/internal/constants"
 
 	pb "github.com/qdrant/go-client/qdrant"
 	"google.golang.org/grpc"
@@ -22,6 +22,7 @@ type QdrantConfig struct {
 	Port              string
 	APIKey            string
 	UseTLS            bool
+	SchemaBM25        bool // Requires Qdrant 1.20+.
 	SchemaCollection  string
 	MessageCollection string
 }
@@ -34,6 +35,7 @@ type QdrantClient struct {
 	qdrantClient      pb.QdrantClient
 	collectionNames   CollectionNames
 	objectCollection  string // nonempty only on a dedicated v2 adapter
+	schemaBM25        bool
 
 	// Cached health status to avoid calling Qdrant on every request.
 	healthMu      sync.RWMutex
@@ -89,6 +91,7 @@ func NewQdrantClient(cfg QdrantConfig) (*QdrantClient, error) {
 	client := &QdrantClient{
 		conn:              conn,
 		collectionNames:   names,
+		schemaBM25:        cfg.SchemaBM25,
 		pointsClient:      pb.NewPointsClient(conn),
 		collectionsClient: pb.NewCollectionsClient(conn),
 		qdrantClient:      pb.NewQdrantClient(conn),
@@ -169,7 +172,7 @@ func (q *QdrantClient) EnsureCollection(ctx context.Context, collection string, 
 // including a full-text index on the "content" field for hybrid search.
 func (q *QdrantClient) EnsureSchemaCollection(ctx context.Context, dimension int) error {
 	indexes := []string{"chat_id", "type", "table_name"}
-	if q.usesCustomCollections() {
+	if q.usesCustomCollections() || q.schemaBM25 {
 		// Qdrant allows one payload type per field; hybrid retrieval uses table_name as text.
 		indexes = []string{"chat_id", "type"}
 	}
@@ -178,17 +181,22 @@ func (q *QdrantClient) EnsureSchemaCollection(ctx context.Context, dimension int
 	}
 	// Create full-text index on "content" for hybrid keyword search (idempotent)
 	if err := q.ensureTextIndex(ctx, constants.SchemaCollectionName, "content"); err != nil {
-		if q.usesCustomCollections() {
+		if q.usesCustomCollections() || q.schemaBM25 {
 			return err
 		}
 		log.Printf("VectorDB -> Warning: failed to create text index on 'content' in schema collection: %v", err)
 	}
 	// Create full-text index on "table_name" for direct table name matching
 	if err := q.ensureTextIndex(ctx, constants.SchemaCollectionName, "table_name"); err != nil {
-		if q.usesCustomCollections() {
+		if q.usesCustomCollections() || q.schemaBM25 {
 			return err
 		}
 		log.Printf("VectorDB -> Warning: failed to create text index on 'table_name' in schema collection: %v", err)
+	}
+	if q.schemaBM25 {
+		if err := q.validateBM25Indexes(ctx, constants.SchemaCollectionName); err != nil {
+			return err
+		}
 	}
 	if q.usesCustomCollections() {
 		return q.validatePayloadIndexes(ctx, constants.SchemaCollectionName, map[string]pb.PayloadSchemaType{
@@ -298,6 +306,14 @@ func (q *QdrantClient) ensureTextIndex(ctx context.Context, collection string, f
 	boolTrue := true
 	lowercase := true
 	fieldType := pb.FieldType_FieldTypeText
+	params := &pb.TextIndexParams{Tokenizer: pb.TokenizerType_Word, Lowercase: &lowercase}
+	if q.schemaBM25 {
+		params.Tokenizer = pb.TokenizerType_Multilingual
+		if fieldName == "table_name" {
+			params.Tokenizer = pb.TokenizerType_Code
+		}
+		params.Scoring = &pb.TextScoringParams{Type: pb.TextScoringType_Bm25}
+	}
 
 	_, err = q.pointsClient.CreateFieldIndex(ctx, &pb.CreateFieldIndexCollection{
 		CollectionName: collection,
@@ -306,10 +322,7 @@ func (q *QdrantClient) ensureTextIndex(ctx context.Context, collection string, f
 		Wait:           &boolTrue,
 		FieldIndexParams: &pb.PayloadIndexParams{
 			IndexParams: &pb.PayloadIndexParams_TextIndexParams{
-				TextIndexParams: &pb.TextIndexParams{
-					Tokenizer: pb.TokenizerType_Word,
-					Lowercase: &lowercase,
-				},
+				TextIndexParams: params,
 			},
 		},
 	})
@@ -439,13 +452,9 @@ func (q *QdrantClient) Search(ctx context.Context, collection string, req Search
 }
 
 // HybridSearch performs a server-side hybrid search using Qdrant's Query API.
-// It runs two independent retrieval legs and fuses them via Reciprocal Rank Fusion (RRF):
-//
-//	Leg 1 (Semantic): Dense vector similarity search with score threshold.
-//	Leg 2 (Keyword):  Dense vector search constrained by a full-text match filter on the text field.
-//
-// Both legs run inside Qdrant — zero application-side post-processing.
-// Points that appear in BOTH legs get a significant RRF score boost.
+// The dense leg always uses a similarity threshold. When SchemaBM25 is on,
+// the text legs are independently ranked by BM25; otherwise they filter
+// dense searches by text. All legs share the visibility filter and use RRF.
 func (q *QdrantClient) HybridSearch(ctx context.Context, collection string, req HybridSearchRequest) ([]SearchResult, error) {
 	collection, err := q.resolveCollection(collection)
 	if err != nil {
@@ -490,35 +499,21 @@ func (q *QdrantClient) HybridSearch(ctx context.Context, collection string, req 
 
 	prefetches := []*pb.PrefetchQuery{semanticPrefetch}
 
-	// --- Prefetch Leg 2: Keyword-constrained vector search ---
-	if req.TextQuery != "" && req.TextField != "" {
-		// Build a filter that requires full-text match AND the shared filter conditions
-		textConditions := make([]*pb.Condition, 0, len(sharedConditions)+1)
-		textConditions = append(textConditions, sharedConditions...)
-		textConditions = append(textConditions, pb.NewMatchText(req.TextField, req.TextQuery))
-
-		textFilter := &pb.Filter{Must: textConditions}
-
-		keywordPrefetch := &pb.PrefetchQuery{
-			Query:  pb.NewQueryDense(req.Vector),
-			Filter: textFilter,
-			Limit:  &prefetchLimit,
-			// No score threshold for keyword leg — if the text matches, it's relevant
+	addTextLeg := func(field, query string) {
+		if field == "" || query == "" {
+			return
 		}
-		prefetches = append(prefetches, keywordPrefetch)
-	}
-
-	// --- Additional text-matching legs (e.g., table_name matching) ---
-	// Each extra leg creates a prefetch that requires a full-text match on a different field.
-	// When a table name appears directly in the query, this gives it a strong RRF boost
-	// (appearing in 3+ fusion inputs instead of just 1-2).
-	for _, leg := range req.ExtraTextLegs {
-		if leg.Query == "" || leg.Field == "" {
-			continue
+		if q.schemaBM25 {
+			// A lexical match can enter the candidate set without any dense score.
+			prefetches = append(prefetches, &pb.PrefetchQuery{
+				Query: pb.NewQueryText(pb.NewTextQueryBM25(query, &pb.Bm25Params{})),
+				Using: &field, Filter: sharedFilter, Limit: &prefetchLimit,
+			})
+			return
 		}
 		legConditions := make([]*pb.Condition, 0, len(sharedConditions)+1)
 		legConditions = append(legConditions, sharedConditions...)
-		legConditions = append(legConditions, pb.NewMatchText(leg.Field, leg.Query))
+		legConditions = append(legConditions, pb.NewMatchText(field, query))
 
 		legFilter := &pb.Filter{Must: legConditions}
 
@@ -526,9 +521,12 @@ func (q *QdrantClient) HybridSearch(ctx context.Context, collection string, req 
 			Query:  pb.NewQueryDense(req.Vector),
 			Filter: legFilter,
 			Limit:  &prefetchLimit,
-			// No score threshold — if the text matches, the item is relevant
 		}
 		prefetches = append(prefetches, legPrefetch)
+	}
+	addTextLeg(req.TextField, req.TextQuery)
+	for _, leg := range req.ExtraTextLegs {
+		addTextLeg(leg.Field, leg.Query)
 	}
 
 	// --- Top-level: RRF Fusion ---
@@ -846,6 +844,25 @@ func (q *QdrantClient) validatePayloadIndexes(ctx context.Context, collection st
 	for field, kind := range expected {
 		if actual[field].GetDataType() != kind {
 			return fmt.Errorf("embedding collection %q requires %s index %q, got %s", collection, kind, field, actual[field].GetDataType())
+		}
+	}
+	return nil
+}
+
+func (q *QdrantClient) validateBM25Indexes(ctx context.Context, collection string) error {
+	name, err := q.resolveCollection(collection)
+	if err != nil {
+		return err
+	}
+	info, err := q.collectionsClient.Get(ctx, &pb.GetCollectionInfoRequest{CollectionName: name})
+	if err != nil {
+		return fmt.Errorf("inspect BM25 indexes on %q: %w", name, err)
+	}
+	for _, field := range []string{"content", "table_name"} {
+		params := info.GetResult().GetPayloadSchema()[field].GetParams().GetTextIndexParams()
+		scoring := params.GetScoring()
+		if scoring == nil || scoring.GetType() != pb.TextScoringType_Bm25 {
+			return fmt.Errorf("collection %q field %q lacks BM25 scoring; Qdrant 1.20+ is required", name, field)
 		}
 	}
 	return nil

@@ -118,6 +118,7 @@ services:
       - QDRANT_PORT=${QDRANT_PORT:-6334} # Qdrant gRPC port
       - QDRANT_API_KEY=${QDRANT_API_KEY} # Qdrant API key (optional for local)
       - QDRANT_USE_TLS=${QDRANT_USE_TLS:-false} # Use TLS for Qdrant connection
+      - QDRANT_SCHEMA_BM25_ENABLED=${QDRANT_SCHEMA_BM25_ENABLED:-false}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER} # openai or gemini (auto-detected if empty)
       - EMBEDDING_MODEL=${EMBEDDING_MODEL} # e.g., text-embedding-3-small (uses provider default if empty)
       - EMBEDDING_SCHEMA_COLLECTION=${EMBEDDING_SCHEMA_COLLECTION:-}

@@ -1,0 +1,16 @@
+/* Presentation styling is scoped to the synthetic database contract. */
+.game-demo-report { color: #172a24; font-size: 14px; }
+.game-demo-report h3 { margin: 0 0 6px; font-size: 22px; font-weight: 800; }
+.game-demo-report header p[role="note"] { max-width: 44rem; font-size: 12px; line-height: 1.6; }
+.game-demo-report header > p:last-child { display: inline-block; margin: 8px 0 12px; padding: 3px 10px; border: 1px solid #25624a; border-radius: 20px; background: white; }
+.game-demo-report dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 16px; }
+.game-demo-report dl > div { padding: 8px 10px; background: #ffffffb8; border-radius: 6px; }
+.game-demo-report dt { color: #52675b; font-size: 11px; }
+.game-demo-report dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.game-demo-report table { width: 100%; border-collapse: collapse; background: white; font-size: 12px; font-variant-numeric: tabular-nums; }
+.game-demo-report th, .game-demo-report td { padding: 9px 7px; border-bottom: 1px solid #d3dfd6; text-align: right; white-space: nowrap; }
+.game-demo-report th:first-child { text-align: left; }
+.game-demo-report thead { background: #18392b; color: white; }
+.game-demo-report tfoot { font-weight: 800; background: #fff0b3; }
+.game-demo-report > p { margin: 8px 0; font-size: 12px; }
+.game-demo-report [data-chart-id] { margin-top: 16px; }

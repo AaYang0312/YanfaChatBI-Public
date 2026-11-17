@@ -1,0 +1,11 @@
+FROM alpine:3.19
+COPY --from=postgres:16-alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN adduser -D appuser
+WORKDIR /app
+COPY main ./main
+COPY config ./config
+COPY email_templates ./internal/email_templates
+USER appuser
+EXPOSE 3000
+HEALTHCHECK --interval=5s --timeout=3s --start-period=20s --retries=12 CMD wget -q -O /dev/null http://localhost:3000/health || exit 1
+CMD ["./main"]

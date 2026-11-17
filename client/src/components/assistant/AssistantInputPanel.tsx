@@ -15,7 +15,9 @@ import {
 } from '../../types/assistant'
 import {
   ASSISTANT_METRICS,
+  GAME_DEMO,
   buildDraft,
+  buildNaturalDraft,
   buildRunRequest,
   defaultAssistantInput,
   reversedDate,
@@ -59,7 +61,7 @@ export default function AssistantInputPanel(props: AssistantInputPanelProps) {
 
 function ChatAssistantInputPanel({ chatId, isConnected, workflow, onWorkflowChange, onRunCreated }: AssistantInputPanelProps) {
   const access = useSourceAccess(chatId)
-  const [mode, setMode] = useState<'natural' | 'explicit'>('natural')
+  const [mode, setMode] = useState<'natural' | 'explicit'>(GAME_DEMO ? 'explicit' : 'natural')
   const [question, setQuestion] = useState('')
   const [draft, setValues] = useState<AssistantInputValues>(() => defaultAssistantInput())
   const values = { ...draft, workflow }
@@ -126,7 +128,7 @@ function ChatAssistantInputPanel({ chatId, isConnected, workflow, onWorkflowChan
       </label>
       <fieldset className="md:col-span-2">
         <legend className="mb-1 text-sm">{copy.input.metrics}</legend>
-        <p className="text-xs text-gray-600 mb-1">{copy.input.metricsNote}</p>
+        <p className="text-xs text-gray-600 mb-1">{GAME_DEMO ? '支付口径；毛利不等于净利润。毛利率用合计毛利 ÷ 合计销售额，缺失数据不补零。' : copy.input.metricsNote}</p>
         <div className="flex flex-wrap gap-3">
           {ASSISTANT_METRICS.map(metric => (
             <label key={metric} className="flex items-center gap-1 text-sm">
@@ -176,7 +178,8 @@ function ChatAssistantInputPanel({ chatId, isConnected, workflow, onWorkflowChan
         request = buildRunRequest(values, id, candidate)
       } else {
         const query = mode === 'natural' ? question : values.productText
-        const resolved = await assistantService.resolve(chatId, buildDraft(values, id, query))
+        const requestDraft = mode === 'natural' ? buildNaturalDraft(values, id, query) : buildDraft(values, id, query)
+        const resolved = await assistantService.resolve(chatId, requestDraft)
         if (!isCurrent()) return
         authority.assert(target)
         if (resolved.status === 'needs_input' || !resolved.request) {
@@ -217,6 +220,7 @@ function ChatAssistantInputPanel({ chatId, isConnected, workflow, onWorkflowChan
 
   return (
     <form aria-label={copy.input.title} className="p-3" onSubmit={submit} aria-busy={pending}>
+      {GAME_DEMO && <p role="note" className="mb-3 text-sm">游戏网店课程演示：店铺、售价、成本、销量和库存均为合成数据，非真实行情。固定周期 2026-11-02 至 11-09（不含结束日），仅支持支付口径。主案例商品 ID：RE9-PS5-STD。</p>}
       <fieldset disabled={pending}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">{copy.input.title}</h2>

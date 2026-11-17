@@ -53,8 +53,8 @@ export default function DashboardEmptyState({
             <TrendingUp className="w-4.5 h-4.5 text-green-600" />
             <span className="text-sm font-bold text-black">用户</span>
           </div>
-          <div className="text-3xl font-black text-black">12.4K</div>
-          <div className="text-xs text-green-600 font-bold mt-1">+24.5%</div>
+          <div className="text-3xl font-black text-black">{import.meta.env.VITE_GAME_DEMO === 'true' ? '—' : '12.4K'}</div>
+          <div className="text-xs text-green-600 font-bold mt-1">{import.meta.env.VITE_GAME_DEMO === 'true' ? '布局示意，等待查询数据' : '+24.5%'}</div>
         </div>
 
         {/* Mock widget: Pie chart card */}

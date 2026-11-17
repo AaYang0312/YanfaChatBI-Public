@@ -103,6 +103,7 @@ services:
       - QDRANT_PORT=6334
       - QDRANT_API_KEY=${QDRANT_API_KEY}
       - QDRANT_USE_TLS=false
+      - QDRANT_SCHEMA_BM25_ENABLED=${QDRANT_SCHEMA_BM25_ENABLED:-false}
       - SPREADSHEET_POSTGRES_HOST=biagent-spreadsheet-postgres
       - SPREADSHEET_POSTGRES_PORT=5432
       - SPREADSHEET_POSTGRES_DATABASE=yanfachatbi_spreadsheet_storage

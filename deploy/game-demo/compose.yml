@@ -1,0 +1,108 @@
+name: gameshelf-6021
+services:
+  game-demo-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: game_demo_admin
+      POSTGRES_PASSWORD: synthetic-demo-admin-only
+      POSTGRES_DB: gameshelf_demo
+    ports: ['127.0.0.1:55432:5432']
+    volumes:
+      - game-postgres:/var/lib/postgresql/data
+      - ./00-uploads.sql:/docker-entrypoint-initdb.d/00-uploads.sql:ro
+      - ./seed.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro
+      - ./oracle.sql:/demo/oracle.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U game_demo_admin -d gameshelf_demo']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  game-demo-mongo:
+    image: mongo@sha256:452bdaf2127b8ff851e31410a267809b9829eded219979f2210e7c7efb85a058
+    volumes: [game-mongo:/data/db]
+  game-demo-redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--requirepass', 'synthetic-demo-redis-only', '--save', '', '--appendonly', 'no']
+  game-demo-qdrant:
+    image: qdrant/qdrant@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2
+    volumes: [game-qdrant:/qdrant/storage]
+  game-demo-backend:
+    profiles: [app]
+    build: ../../backend
+    ports: ['127.0.0.1:5300:3000']
+    depends_on:
+      game-demo-postgres: {condition: service_healthy}
+      game-demo-mongo: {condition: service_started}
+      game-demo-redis: {condition: service_started}
+      game-demo-qdrant: {condition: service_started}
+    environment:
+      IS_DOCKER: 'true'
+      PORT: '3000'
+      ENVIRONMENT: DEVELOPMENT
+      CORS_ALLOWED_ORIGIN: http://localhost:55173
+      YANFA_ASSISTANT_DEMO: 'true'
+      YANFA_ADMIN_USERNAME: game-demo-presenter
+      YANFA_ADMIN_PASSWORD: synthetic-coursework-only
+      SCHEMA_ENCRYPTION_KEY: 'games6021demo-encryption-key-001'
+      JWT_SECRET: 'games6021demo-jwt-secret-00000001'
+      SPREADSHEET_DATA_ENCRYPTION_KEY: 'games6021demo-upload-key-0000001'
+      YANFA_MONGODB_URI: mongodb://game-demo-mongo:27017/gameshelf_6021
+      YANFA_MONGODB_NAME: gameshelf_6021
+      YANFA_REDIS_HOST: game-demo-redis
+      YANFA_REDIS_PORT: '6379'
+      YANFA_REDIS_USERNAME: ''
+      YANFA_REDIS_PASSWORD: synthetic-demo-redis-only
+      QDRANT_HOST: game-demo-qdrant
+      QDRANT_PORT: '6334'
+      QDRANT_API_KEY: ''
+      QDRANT_USE_TLS: 'false'
+      # No custom collection names without an embedding provider. Physical
+      # Qdrant isolation is provided by this stack's private network and volume.
+      EMBEDDING_SCHEMA_COLLECTION: ''
+      EMBEDDING_MESSAGE_COLLECTION: ''
+      EMBEDDING_OBJECT_SCHEMA_COLLECTION: ''
+      QUERY_OBJECTS_ENABLED: 'true'
+      OPENAI_API_KEY: ''
+      EXAMPLE_DB_TYPE: postgresql
+      EXAMPLE_DB_HOST: game-demo-postgres
+      EXAMPLE_DB_PORT: '5432'
+      EXAMPLE_DB_NAME: gameshelf_demo
+      EXAMPLE_DB_USERNAME: game_demo_reader
+      EXAMPLE_DB_PASSWORD: synthetic-demo-reader-only
+      SPREADSHEET_POSTGRES_HOST: game-demo-postgres
+      SPREADSHEET_POSTGRES_PORT: '5432'
+      SPREADSHEET_POSTGRES_DATABASE: game_demo_uploads
+      SPREADSHEET_POSTGRES_USERNAME: game_demo_admin
+      SPREADSHEET_POSTGRES_PASSWORD: synthetic-demo-admin-only
+      SPREADSHEET_POSTGRES_SSL_MODE: disable
+  game-demo-client:
+    profiles: [app]
+    build:
+      context: ../../client
+      args:
+        VITE_FRONTEND_BASE_URL: http://localhost:55173
+        VITE_API_URL: http://localhost:5300/api
+        VITE_ENVIRONMENT: DEVELOPMENT
+        VITE_GAME_DEMO: 'true'
+    ports: ['127.0.0.1:55173:5173']
+    depends_on: [game-demo-backend]
+  game-demo-tests:
+    profiles: [test]
+    image: golang:1.25-alpine
+    working_dir: /src
+    volumes:
+      - ../../backend:/src:ro
+      - game-go-mod:/go/pkg/mod
+      - game-go-build:/root/.cache/go-build
+    environment:
+      GAME_DEMO_TEST_DSN: postgres://game_demo_reader:synthetic-demo-reader-only@game-demo-postgres:5432/gameshelf_demo?sslmode=disable
+    command: ['go', 'test', './internal/services', '-run', 'TestGameDemo', '-count=1', '-v']
+    depends_on:
+      game-demo-postgres: {condition: service_healthy}
+volumes:
+  game-postgres:
+  game-mongo:
+  game-qdrant:
+  game-go-mod:
+  game-go-build:
+# Default Compose network is project-scoped; no existing network or volume is used.

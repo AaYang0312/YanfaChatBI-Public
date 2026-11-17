@@ -4,7 +4,10 @@ export const ASSISTANT_TIMEZONE = 'Asia/Shanghai'
 
 // The ERP quantity pilot only supports ordinary-sale quantity on the payment
 // basis in Asia/Shanghai; other metrics would be rejected as unsupported.
-export const ASSISTANT_METRICS: MetricID[] = ['quantity']
+export const GAME_DEMO = import.meta.env.VITE_GAME_DEMO === 'true'
+export const ASSISTANT_METRICS: MetricID[] = GAME_DEMO
+  ? ['quantity', 'sales', 'cost', 'margin', 'margin_rate', 'avg_price']
+  : ['quantity']
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -25,8 +28,8 @@ export interface AssistantInputValues {
 }
 
 export function defaultAssistantInput(now = new Date()): AssistantInputValues {
-  const end = businessDate(now)
-  const start = businessDate(addDays(now, -7))
+  const end = GAME_DEMO ? '2026-11-09' : businessDate(now)
+  const start = GAME_DEMO ? '2026-11-02' : businessDate(addDays(now, -7))
   return {
     workflow: 'product_analysis',
     basis: 'payment',
@@ -35,8 +38,8 @@ export function defaultAssistantInput(now = new Date()): AssistantInputValues {
     scopeMode: 'all',
     platformIds: '',
     shopIds: '',
-    productText: '',
-    productId: '',
+    productText: GAME_DEMO ? 'Resident Evil Requiem' : '',
+    productId: GAME_DEMO ? 'RE9-PS5-STD' : '',
     skuIds: '',
     groupBy: 'shop',
     metrics: [...ASSISTANT_METRICS],
@@ -104,6 +107,10 @@ export function buildDraft(
     metrics: values.metrics,
     ...(optionalThreshold(values.threshold) ? { low_margin_threshold: values.threshold.trim() } : {}),
   }
+}
+
+export function buildNaturalDraft(values: AssistantInputValues, requestId: string, question: string): DraftRequest {
+  return buildDraft({ ...values, productId: '', skuIds: '' }, requestId, question)
 }
 
 export function buildRunRequest(values: AssistantInputValues, requestId: string, candidate?: Candidate): AnalysisRequest {

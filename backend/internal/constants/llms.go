@@ -2,6 +2,7 @@ package constants
 
 import (
 	"log"
+	"os"
 	"strings"
 )
 
@@ -17,6 +18,11 @@ const (
 const LanguageDirective = "Default to Simplified Chinese for recommendations, explanations, guidance, and chart titles. Preserve SQL, code, identifiers, product names, and source data verbatim. Use another language only when the user explicitly requests it for that answer."
 
 func appendLanguageDirective(prompt string) string {
+	if os.Getenv("ENVIRONMENT") == "DEVELOPMENT" && os.Getenv("YANFA_ASSISTANT_DEMO") == "true" {
+		// This transforms static system instructions only; user data, product
+		// identifiers, permissions and SQL rules are preserved verbatim.
+		prompt = strings.ReplaceAll(prompt, "YanfaChatBI", "GameShelf")
+	}
 	return strings.TrimRight(prompt, "\n") + "\n\n" + LanguageDirective
 }
 

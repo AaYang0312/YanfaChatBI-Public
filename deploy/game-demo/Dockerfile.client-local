@@ -1,0 +1,7 @@
+FROM node:20-alpine
+WORKDIR /app
+COPY dist ./dist
+COPY serve.mjs ./serve.mjs
+USER node
+EXPOSE 5173
+CMD ["node", "serve.mjs"]

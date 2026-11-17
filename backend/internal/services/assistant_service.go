@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -312,6 +313,16 @@ func (s *assistantService) Resolve(ctx context.Context, access models.AccessCont
 func (s *assistantService) resolveAdmitted(ctx context.Context, access models.AccessContext, draft models.DraftRequest, read *SourceRead) (models.Resolution, error) {
 	catalog := s.catalog
 	catalogAccess := access
+	if s.demoEnabled && read.Classification == models.SourceIndependent {
+		source, closeReader, err := s.openGameDemoSource(ctx, access, read)
+		if err != nil {
+			return models.Resolution{}, err
+		}
+		defer closeReader()
+		if source != nil {
+			catalog = source
+		}
+	}
 	if s.useERPQuantityPilot(read) {
 		if len(draft.Metrics) == 0 {
 			return ResolveDraft(access, draft, s.now(), nil)
@@ -894,10 +905,53 @@ func assistantDraftProduct(product *models.ProductSelection) models.ProductSelec
 }
 
 func (s *assistantService) isDemoConnection(read *SourceRead, connection models.Connection) bool {
+	if s.isGameDemoConnection(read, connection) {
+		return true
+	}
 	return s.demoEnabled && read.Classification == models.SourceIndependent && !connection.SSHEnabled &&
 		connection.Type == "postgresql" && connection.Host == "yanfachatbi-spreadsheet-postgres" &&
 		connection.Database == "yanfa_bi_demo" && connection.Port != nil && *connection.Port == "5432" &&
 		connection.Username != nil && *connection.Username == "yanfa_demo_reader"
+}
+
+// The endpoint is deliberately exact and independent of production/ERP settings.
+func (s *assistantService) isGameDemoConnection(read *SourceRead, connection models.Connection) bool {
+	return s.demoEnabled && read != nil && read.Classification == models.SourceIndependent &&
+		!connection.SSHEnabled && !connection.UseSSL && connection.Type == "postgresql" &&
+		connection.Host == "game-demo-postgres" && connection.Database == "gameshelf_demo" &&
+		connection.Port != nil && *connection.Port == "5432" &&
+		connection.Username != nil && *connection.Username == "game_demo_reader"
+}
+
+func (s *assistantService) openGameDemoSource(ctx context.Context, access models.AccessContext, read *SourceRead) (*AssistantGameDemoSource, func(), error) {
+	chat, err := s.chats.FindOwnedChat(ctx, access.OwnerID, access.ChatID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if chat == nil || chat.UserID.Hex() != access.OwnerID || chat.ID.Hex() != access.ChatID {
+		return nil, nil, AssistantRunNotFoundError{}
+	}
+	connection := chat.Connection.Clone()
+	utils.DecryptConnection(&connection)
+	// AcquireRead pinned the original connection in this context. A changed
+	// endpoint must fail closed before any legacy fixture routing decision.
+	if _, err := sourceOriginContext(ctx, chat, connection); err != nil {
+		return nil, nil, err
+	}
+	if !s.isGameDemoConnection(read, connection) {
+		return nil, func() {}, nil
+	}
+	if connection.Password == nil {
+		return nil, nil, models.NewValidationError(models.ErrorCodeCapabilityUnavailable, "source", "game demo connection needs its dedicated reader password")
+	}
+	dsn := url.URL{Scheme: "postgres", Host: "game-demo-postgres:5432", Path: "/gameshelf_demo", User: url.UserPassword(*connection.Username, *connection.Password)}
+	args := url.Values{"sslmode": []string{"disable"}, "connect_timeout": []string{"5"}}
+	dsn.RawQuery = args.Encode()
+	reader, err := dbmanager.NewAssistantReadonlyReader(dsn.String())
+	if err != nil {
+		return nil, nil, err
+	}
+	return NewAssistantGameDemoSource(reader), func() { _ = reader.Close() }, nil
 }
 
 func (s *assistantService) useERPQuantityPilot(read *SourceRead) bool {
@@ -973,6 +1027,20 @@ func (s *assistantService) openERPQuantitySource(ctx context.Context, access mod
 }
 
 func (s *assistantService) executeAdmittedWorkflow(ctx context.Context, run models.RunRecord, read *SourceRead) (models.AnalysisReport, error) {
+	if s.demoEnabled && read.Classification == models.SourceIndependent {
+		source, closeReader, err := s.openGameDemoSource(ctx, models.AccessContext{OwnerID: run.OwnerID, ChatID: run.ChatID}, read)
+		if err != nil {
+			return models.AnalysisReport{}, err
+		}
+		defer closeReader()
+		if source != nil {
+			workflow, err := NewAssistantWorkflow(run.NormalizedInput, source, s.explanationModel, WithWorkflowChat(run.ChatID, run.OwnerID))
+			if err != nil {
+				return models.AnalysisReport{}, err
+			}
+			return workflow.Invoke(ctx, models.AnalysisReport{ReportID: run.RunID})
+		}
+	}
 	if !s.useERPQuantityPilot(read) {
 		return s.executeWorkflow(ctx, run)
 	}

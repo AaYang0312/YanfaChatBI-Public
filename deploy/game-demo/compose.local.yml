@@ -1,0 +1,27 @@
+# Optional fallback: build Go/React locally, without downloading build dependencies in Docker.
+services:
+  game-demo-tests-local:
+    profiles: [test]
+    image: postgres:16-alpine
+    entrypoint: /demo/services.test
+    command: ['-test.run=TestGameDemo', '-test.v']
+    volumes: ['../../.agent-runs/game-demo:/demo:ro']
+    environment:
+      GAME_DEMO_TEST_DSN: postgres://game_demo_reader:synthetic-demo-reader-only@game-demo-postgres:5432/gameshelf_demo?sslmode=disable
+    depends_on:
+      game-demo-postgres: {condition: service_healthy}
+  game-demo-backend:
+    image: gameshelf-6021-backend-local
+    env_file:
+      - path: ../../.agent-runs/game-demo/embedding.private.env
+        required: false
+    environment:
+      QDRANT_SCHEMA_BM25_ENABLED: '${GAME_DEMO_SCHEMA_BM25_ENABLED:-true}'
+    build:
+      context: ../../.agent-runs/game-demo/backend-runtime
+      dockerfile: Dockerfile
+  game-demo-client:
+    image: gameshelf-6021-client-local
+    build:
+      context: ../../.agent-runs/game-demo/client-runtime
+      dockerfile: Dockerfile

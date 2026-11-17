@@ -25,7 +25,7 @@ func TestObjectStoreIsolatedQdrantAcceptance(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	prefix := fmt.Sprintf("object_index_test_%d", time.Now().UnixNano())
-	q, err := NewQdrantClient(QdrantConfig{Host: host, Port: port, SchemaCollection: prefix + "_schema", MessageCollection: prefix + "_messages"})
+	q, err := NewQdrantClient(QdrantConfig{Host: host, Port: port, SchemaCollection: prefix + "_schema", MessageCollection: prefix + "_messages", SchemaBM25: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,6 +94,38 @@ func TestObjectStoreIsolatedQdrantAcceptance(t *testing.T) {
 	if err != nil || len(hits) != 1 || hits[0].ID != id {
 		t.Fatalf("hybrid %+v %v", hits, err)
 	}
+	t.Run("exact object keyword works without semantic similarity", func(t *testing.T) {
+		otherChat := "a3d4e0cb-d6cb-4aa1-b975-98de115f098a"
+		oldGeneration := "c2cd949c-0a55-4d7c-8a99-bccde839ad71"
+		makePoint := func(pointID, field, value string) VectorPoint {
+			data := map[string]interface{}{"content": "Sales view amount column", "table_name": "Sales"}
+			for k, v := range filter {
+				data[k] = v
+			}
+			data[field] = value
+			return VectorPoint{ID: pointID, Vector: []float32{0, 0, 1}, Payload: data}
+		}
+		if err := store.Upsert(ctx, []VectorPoint{
+			makePoint(otherChat, "chat_id", "different-chat"),
+			makePoint(oldGeneration, "generation_id", "40f744b6-973e-469d-b12e-b4f554793a84"),
+		}); err != nil {
+			t.Fatal(err)
+		}
+		question := "在 Sales 中查 amount，按什么口径统计？"
+		hits, err := store.HybridSearch(ctx, HybridSearchRequest{
+			Vector: []float32{0, 1, 0}, Filter: filter, TopK: 5, ScoreThreshold: 0.35,
+			TextField: "content", TextQuery: question,
+			ExtraTextLegs: []TextSearchLeg{{Field: "table_name", Query: question}},
+		})
+		if err != nil || len(hits) != 1 || hits[0].ID != id {
+			t.Fatalf("expected only the in-scope exact-name match; got %+v, %v", hits, err)
+		}
+	})
+	t.Run("populated collection switches ranking and restores legacy mode", func(t *testing.T) {
+		if err := testBM25Cutover(ctx, store, filter, id); err != nil {
+			t.Fatal(err)
+		}
+	})
 	if err = store.DeleteGeneration(ctx, objectConditions(filter)); err != nil {
 		t.Fatal(err)
 	}
@@ -107,4 +139,64 @@ func TestObjectStoreIsolatedQdrantAcceptance(t *testing.T) {
 			t.Fatalf("legacy/message sentinel removed %s %d %v", name, count, err)
 		}
 	}
+}
+
+func testBM25Cutover(ctx context.Context, store *QdrantObjectStore, active map[string]string, originalID string) error {
+	// Switch all writers together. The real index replacement must keep stored
+	// points and restore the original text-only filter when disabled.
+	setMode := func(on bool) error {
+		store.q.schemaBM25 = on
+		if err := store.Ensure(ctx, 3); err != nil {
+			return err
+		}
+		if err := store.q.validateBM25Indexes(ctx, store.collection); (err == nil) != on {
+			return fmt.Errorf("scoring configuration for mode %t: %v", on, err)
+		}
+		return nil
+	}
+	filter := objectTestFilter()
+	filter["chat_id"] = "rank-fixture"
+	point := func(id, content, name string, vector []float32) VectorPoint {
+		p := map[string]interface{}{"content": content, "table_name": name}
+		for k, v := range filter {
+			p[k] = v
+		}
+		return VectorPoint{ID: id, Vector: vector, Payload: p}
+	}
+	const lexical = "db36c77a-42be-4c43-a6c8-77fa377ce40b"
+	const dense = "da8442d7-b3ae-4d03-8a88-956b3f7b175d"
+	if err := store.Upsert(ctx, []VectorPoint{
+		point(lexical, "invoice invoice invoice", `"reporting"."invoice_lines"`, []float32{0, 0, 1}),
+		point(dense, "invoice optional historical archival reconciliation notes", `"reporting"."payment"`, []float32{0.2, 0.98, 0}),
+	}); err != nil {
+		return err
+	}
+	if err := setMode(false); err != nil {
+		return err
+	}
+	request := HybridSearchRequest{Vector: []float32{1, 0, 0}, Filter: filter, TopK: 2, ScoreThreshold: .35, TextField: "content", TextQuery: "invoice"}
+	check := func(r HybridSearchRequest, first string, length int) error {
+		hits, err := store.HybridSearch(ctx, r)
+		if err != nil || len(hits) != length || hits[0].ID != first {
+			return fmt.Errorf("expected %d results with %s first, got %+v, %v", length, first, hits, err)
+		}
+		return nil
+	}
+	if err := check(request, dense, 2); err != nil {
+		return err
+	}
+	if err := setMode(true); err != nil {
+		return err
+	}
+	if err := check(request, lexical, 2); err != nil {
+		return err
+	}
+	request.TextField, request.TextQuery = "table_name", `帮我查询 reporting.invoice_lines 的数据`
+	if err := check(request, lexical, 2); err != nil {
+		return err
+	}
+	if err := setMode(false); err != nil {
+		return err
+	}
+	return check(HybridSearchRequest{Vector: []float32{1, 0, 0}, Filter: active, TopK: 5, TextField: "content", TextQuery: "Sales"}, originalID, 1)
 }
